@@ -18,7 +18,8 @@ const MapSearch: React.FC = () => {
   
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<any>(null);
-  const overlaysRef = useRef<any[]>([]);
+  const clustererRef = useRef<any>(null);
+  const markersMapRef = useRef<Map<string, any>>(new Map());
 
   // Default Center (Gangnam Station)
   const DEFAULT_LAT = 37.4979;
@@ -54,6 +55,41 @@ const MapSearch: React.FC = () => {
     return formatMoney(prop.price);
   };
 
+  // Helper to generate dynamic SVG marker image with text
+  const createMarkerImage = (text: string, isSelected: boolean) => {
+    if (!window.kakao) return null;
+
+    const width = text.length * 9 + 20; // Approximate width based on text length
+    const height = 32;
+    const bgColor = isSelected ? '#2563EB' : '#FFFFFF';
+    const textColor = isSelected ? '#FFFFFF' : '#374151';
+    const borderColor = isSelected ? '#1D4ED8' : '#9CA3AF';
+    
+    // SVG string construction
+    const svg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height + 6}" viewBox="0 0 ${width} ${height + 6}">
+        <defs>
+          <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="1" stdDeviation="1" flood-opacity="0.2"/>
+          </filter>
+        </defs>
+        <g filter="url(#shadow)">
+          <rect x="1" y="1" width="${width - 2}" height="${height - 2}" rx="6" ry="6" fill="${bgColor}" stroke="${borderColor}" stroke-width="1"/>
+          <path d="M${width / 2 - 4} ${height - 1.5} L${width / 2} ${height + 3} L${width / 2 + 4} ${height - 1.5} Z" fill="${bgColor}" stroke="${borderColor}" stroke-width="0" />
+        </g>
+        <text x="${width / 2}" y="${height / 2 + 1}" font-family="sans-serif" font-size="12" font-weight="bold" fill="${textColor}" text-anchor="middle" dominant-baseline="middle">${text}</text>
+      </svg>
+    `;
+    
+    const url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    
+    return new window.kakao.maps.MarkerImage(
+      url,
+      new window.kakao.maps.Size(width, height + 6),
+      { offset: new window.kakao.maps.Point(width / 2, height + 6) }
+    );
+  };
+
   // 1. Fetch Property Data
   useEffect(() => {
     const fetchProps = async () => {
@@ -72,12 +108,11 @@ const MapSearch: React.FC = () => {
     fetchProps();
   }, []);
 
-  // 2. Dynamic Script Loading for Stability
+  // 2. Dynamic Script Loading
   useEffect(() => {
     const scriptId = 'kakao-map-script';
     const isScriptExist = document.getElementById(scriptId);
     
-    // If map is already loaded in global window, just set state
     if (window.kakao && window.kakao.maps) {
       window.kakao.maps.load(() => {
         setMapLoaded(true);
@@ -88,7 +123,6 @@ const MapSearch: React.FC = () => {
     if (!isScriptExist) {
       const script = document.createElement('script');
       script.id = scriptId;
-      // Using autoload=false to manually initialize via window.kakao.maps.load
       script.src = '//dapi.kakao.com/v2/maps/sdk.js?appkey=7e88cf2e2962d67bb246f38f504dc200&libraries=services,clusterer&autoload=false';
       
       script.onload = () => {
@@ -98,17 +132,12 @@ const MapSearch: React.FC = () => {
           });
         }
       };
-
-      script.onerror = () => {
-        console.error("Failed to load Kakao Map script");
-        // Retry logic or user alert could go here
-      };
-
+      script.onerror = () => console.error("Failed to load Kakao Map script");
       document.head.appendChild(script);
     }
   }, []);
 
-  // 3. Initialize Map
+  // 3. Initialize Map & Clusterer
   useEffect(() => {
     if (mapLoaded && mapContainer.current && !mapInstance.current) {
       const options = {
@@ -121,45 +150,79 @@ const MapSearch: React.FC = () => {
       
       const zoomControl = new window.kakao.maps.ZoomControl();
       map.addControl(zoomControl, window.kakao.maps.ControlPosition.RIGHT);
+
+      // Initialize Clusterer
+      clustererRef.current = new window.kakao.maps.MarkerClusterer({
+        map: map,
+        averageCenter: true,
+        minLevel: 6, // Show markers below level 6, show clusters at level 6 and above
+        disableClickZoom: false, // Double click zoom on cluster
+        styles: [{ // Custom cluster style
+          width: '50px', 
+          height: '50px',
+          background: 'rgba(37, 99, 235, 0.9)',
+          borderRadius: '25px',
+          color: '#fff',
+          textAlign: 'center',
+          fontWeight: 'bold',
+          lineHeight: '50px',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+        }]
+      });
     }
   }, [mapLoaded]);
 
-  // 4. Update Markers
+  // 4. Create and Cluster Markers
   useEffect(() => {
-    if (!mapInstance.current || properties.length === 0 || !mapLoaded) return;
+    if (!mapInstance.current || !clustererRef.current || properties.length === 0 || !mapLoaded) return;
 
-    // Clear existing overlays
-    overlaysRef.current.forEach(overlay => overlay.setMap(null));
-    overlaysRef.current = [];
+    // Clear existing
+    clustererRef.current.clear();
+    markersMapRef.current.clear();
 
-    properties.forEach(prop => {
+    const newMarkers = properties.map(prop => {
       const coords = getCoordinates(prop.id);
       const position = new window.kakao.maps.LatLng(coords.lat, coords.lng);
-      
+      const priceStr = getPriceString(prop);
       const isSelected = selectedPropId === prop.id;
-
-      const content = document.createElement('div');
-      content.className = `customoverlay ${isSelected ? 'selected' : ''}`;
-      content.innerHTML = `<span class="title">${getPriceString(prop)}</span>`;
-
-      content.onclick = (e) => {
-        e.stopPropagation();
-        setSelectedPropId(prop.id);
-        mapInstance.current.panTo(position);
-      };
-
-      const customOverlay = new window.kakao.maps.CustomOverlay({
+      
+      const marker = new window.kakao.maps.Marker({
         position: position,
-        content: content,
-        yAnchor: 1,
-        zIndex: isSelected ? 10 : 1
+        image: createMarkerImage(priceStr, isSelected),
+        zIndex: isSelected ? 10 : 0
       });
 
-      customOverlay.setMap(mapInstance.current);
-      overlaysRef.current.push(customOverlay);
+      // Marker Click Event
+      window.kakao.maps.event.addListener(marker, 'click', () => {
+        setSelectedPropId(prop.id);
+        mapInstance.current.panTo(position);
+      });
+
+      markersMapRef.current.set(prop.id, marker);
+      return marker;
     });
 
-  }, [properties, selectedPropId, mapLoaded]);
+    clustererRef.current.addMarkers(newMarkers);
+
+  }, [properties, mapLoaded]); // Don't include selectedPropId here to avoid full recreate
+
+  // 5. Update Selected Marker Visuals
+  useEffect(() => {
+    if (markersMapRef.current.size === 0) return;
+
+    // Efficiently update only relevant markers if possible, or all (simple for small N)
+    properties.forEach(prop => {
+      const marker = markersMapRef.current.get(prop.id);
+      if (marker) {
+        const isSelected = selectedPropId === prop.id;
+        const priceStr = getPriceString(prop);
+        
+        // Update marker image to reflect selection state
+        marker.setImage(createMarkerImage(priceStr, isSelected));
+        marker.setZIndex(isSelected ? 10 : 0);
+      }
+    });
+  }, [selectedPropId, properties]);
 
   const handleListClick = (prop: Property) => {
     setSelectedPropId(prop.id);
@@ -167,6 +230,11 @@ const MapSearch: React.FC = () => {
     if (mapInstance.current) {
       const moveLatLon = new window.kakao.maps.LatLng(coords.lat, coords.lng);
       mapInstance.current.panTo(moveLatLon);
+      
+      // If we are zoomed out, zoom in to see the marker instead of cluster
+      if (mapInstance.current.getLevel() > 5) {
+        mapInstance.current.setLevel(5, { animate: true });
+      }
     }
   };
 
