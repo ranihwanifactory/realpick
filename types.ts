@@ -26,6 +26,16 @@ export interface UserProfile {
   isAdmin: boolean;
 }
 
+export interface NewsArticle {
+  id: string;
+  title: string;
+  summary: string;
+  category: 'MARKET' | 'POLICY' | 'FINANCE';
+  date: string;
+  imageUrl: string;
+  source: string;
+}
+
 export const ADMIN_EMAIL = 'acehwan69@gmail.com';
 
 export const PROPERTY_TYPES: Record<PropertyType, string> = {

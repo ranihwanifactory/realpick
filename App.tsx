@@ -10,6 +10,8 @@ import { Menu, User as UserIcon, LogOut, Search, MapPin, Building2, Filter, Chev
 import Admin from './pages/Admin';
 import AuthModal from './components/AuthModal';
 import PropertyCard from './components/PropertyCard';
+import MapSearch from './pages/MapSearch';
+import News from './pages/News';
 
 // User Context
 const UserContext = createContext<{ user: UserProfile | null, loading: boolean }>({ user: null, loading: true });
@@ -45,6 +47,8 @@ const App: React.FC = () => {
         <Layout>
           <Routes>
             <Route path="/" element={<Home />} />
+            <Route path="/map" element={<MapSearch />} />
+            <Route path="/news" element={<News />} />
             <Route 
               path="/admin" 
               element={user?.isAdmin ? <Admin /> : <Navigate to="/" replace />} 
@@ -65,8 +69,8 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-800 font-sans">
-      <nav className="sticky top-0 z-40 bg-white border-b border-gray-100 shadow-sm backdrop-blur-md bg-opacity-90">
+    <div className="min-h-screen bg-gray-50 text-gray-800 font-sans flex flex-col">
+      <nav className="sticky top-0 z-40 bg-white border-b border-gray-100 shadow-sm backdrop-blur-md bg-opacity-90 flex-shrink-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center gap-8">
@@ -79,8 +83,8 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               
               <div className="hidden md:flex items-center space-x-6 text-sm font-medium text-gray-600">
                 <Link to="/" className={`${location.pathname === '/' ? 'text-blue-600' : 'hover:text-blue-600'} transition-colors`}>매물찾기</Link>
-                <a href="#" className="hover:text-blue-600 transition-colors">지도검색</a>
-                <a href="#" className="hover:text-blue-600 transition-colors">부동산뉴스</a>
+                <Link to="/map" className={`${location.pathname === '/map' ? 'text-blue-600' : 'hover:text-blue-600'} transition-colors`}>지도검색</Link>
+                <Link to="/news" className={`${location.pathname === '/news' ? 'text-blue-600' : 'hover:text-blue-600'} transition-colors`}>부동산뉴스</Link>
                 {user?.isAdmin && (
                   <Link to="/admin" className="text-red-500 hover:text-red-700 font-bold">관리자 페이지</Link>
                 )}
@@ -126,7 +130,8 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         {isMenuOpen && (
           <div className="md:hidden bg-white border-t border-gray-100 p-4 space-y-4">
              <Link to="/" className="block py-2 font-medium" onClick={() => setIsMenuOpen(false)}>매물찾기</Link>
-             <a href="#" className="block py-2 font-medium" onClick={() => setIsMenuOpen(false)}>지도검색</a>
+             <Link to="/map" className="block py-2 font-medium" onClick={() => setIsMenuOpen(false)}>지도검색</Link>
+             <Link to="/news" className="block py-2 font-medium" onClick={() => setIsMenuOpen(false)}>부동산뉴스</Link>
              {user?.isAdmin && (
                <Link to="/admin" className="block py-2 font-medium text-red-500" onClick={() => setIsMenuOpen(false)}>관리자 페이지</Link>
              )}
@@ -134,45 +139,48 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         )}
       </nav>
 
-      <main>
+      <main className="flex-grow">
         {children}
       </main>
 
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
-
-      <footer className="bg-gray-900 text-gray-400 py-12 mt-20">
-        <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8">
-          <div className="col-span-1 md:col-span-2">
-            <div className="flex items-center gap-2 mb-4 text-white">
-              <Building2 size={24} />
-              <span className="font-bold text-xl">HomePick</span>
+      
+      {/* Hide Footer on Map Page for full screen experience */}
+      {location.pathname !== '/map' && (
+        <footer className="bg-gray-900 text-gray-400 py-12 mt-auto">
+          <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div className="col-span-1 md:col-span-2">
+              <div className="flex items-center gap-2 mb-4 text-white">
+                <Building2 size={24} />
+                <span className="font-bold text-xl">HomePick</span>
+              </div>
+              <p className="text-sm leading-relaxed mb-6">
+                대한민국 최고의 부동산 플랫폼 HomePick입니다.<br/>
+                허위매물 없는 정직한 중개로 보답하겠습니다.
+              </p>
+              <p className="text-xs">© 2024 HomePick Korea. All rights reserved.</p>
             </div>
-            <p className="text-sm leading-relaxed mb-6">
-              대한민국 최고의 부동산 플랫폼 HomePick입니다.<br/>
-              허위매물 없는 정직한 중개로 보답하겠습니다.
-            </p>
-            <p className="text-xs">© 2024 HomePick Korea. All rights reserved.</p>
+            <div>
+              <h4 className="text-white font-bold mb-4">서비스</h4>
+              <ul className="space-y-2 text-sm">
+                <li>매물 검색</li>
+                <li>지도 찾기</li>
+                <li>시세 조회</li>
+                <li>분양 정보</li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="text-white font-bold mb-4">고객센터</h4>
+              <ul className="space-y-2 text-sm">
+                <li>공지사항</li>
+                <li>자주 묻는 질문</li>
+                <li>1:1 문의</li>
+                <li>제휴 문의</li>
+              </ul>
+            </div>
           </div>
-          <div>
-            <h4 className="text-white font-bold mb-4">서비스</h4>
-            <ul className="space-y-2 text-sm">
-              <li>매물 검색</li>
-              <li>지도 찾기</li>
-              <li>시세 조회</li>
-              <li>분양 정보</li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="text-white font-bold mb-4">고객센터</h4>
-            <ul className="space-y-2 text-sm">
-              <li>공지사항</li>
-              <li>자주 묻는 질문</li>
-              <li>1:1 문의</li>
-              <li>제휴 문의</li>
-            </ul>
-          </div>
-        </div>
-      </footer>
+        </footer>
+      )}
     </div>
   );
 };
