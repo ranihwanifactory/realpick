@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../services/firebase';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { Property, PROPERTY_TYPES, TRADE_TYPES } from '../types';
-import { Search, MapPin, Navigation, List } from 'lucide-react';
+import { Search, MapPin, Navigation, List, Loader2 } from 'lucide-react';
 
 declare global {
   interface Window {
@@ -12,7 +12,8 @@ declare global {
 
 const MapSearch: React.FC = () => {
   const [properties, setProperties] = useState<Property[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingData, setLoadingData] = useState(true);
+  const [mapLoaded, setMapLoaded] = useState(false);
   const [selectedPropId, setSelectedPropId] = useState<string | null>(null);
   
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -23,14 +24,12 @@ const MapSearch: React.FC = () => {
   const DEFAULT_LAT = 37.4979;
   const DEFAULT_LNG = 127.0276;
 
-  // Generate consistent pseudo-coordinates around Gangnam for demo purposes
-  // In a real app, these would come from the database
+  // Generate pseudo-coordinates based on ID hash
   const getCoordinates = (id: string) => {
     let hash = 0;
     for (let i = 0; i < id.length; i++) {
       hash = id.charCodeAt(i) + ((hash << 5) - hash);
     }
-    // Random offset within approx 1-2km
     const latOffset = ((hash % 100) / 3000) * (hash % 2 === 0 ? 1 : -1);
     const lngOffset = (((hash >> 2) % 100) / 3000) * (hash % 3 === 0 ? 1 : -1);
     
@@ -55,7 +54,7 @@ const MapSearch: React.FC = () => {
     return formatMoney(prop.price);
   };
 
-  // Fetch Data
+  // 1. Fetch Property Data
   useEffect(() => {
     const fetchProps = async () => {
       try {
@@ -67,33 +66,44 @@ const MapSearch: React.FC = () => {
       } catch (err) {
         console.error(err);
       } finally {
-        setLoading(false);
+        setLoadingData(false);
       }
     };
     fetchProps();
   }, []);
 
-  // Initialize Map
+  // 2. Load Map Script securely
   useEffect(() => {
-    if (!loading && mapContainer.current && window.kakao) {
-      window.kakao.maps.load(() => {
-        const options = {
-          center: new window.kakao.maps.LatLng(DEFAULT_LAT, DEFAULT_LNG),
-          level: 5,
-        };
-        
-        // Create Map
-        const map = new window.kakao.maps.Map(mapContainer.current, options);
-        mapInstance.current = map;
+    const checkKakao = setInterval(() => {
+      if (window.kakao && window.kakao.maps) {
+        clearInterval(checkKakao);
+        window.kakao.maps.load(() => {
+          setMapLoaded(true);
+        });
+      }
+    }, 500); // Check every 500ms
 
-        // Zoom Control
-        const zoomControl = new window.kakao.maps.ZoomControl();
-        map.addControl(zoomControl, window.kakao.maps.ControlPosition.RIGHT);
-      });
+    return () => clearInterval(checkKakao);
+  }, []);
+
+  // 3. Initialize Map when script is ready
+  useEffect(() => {
+    if (mapLoaded && mapContainer.current && !mapInstance.current) {
+      const options = {
+        center: new window.kakao.maps.LatLng(DEFAULT_LAT, DEFAULT_LNG),
+        level: 5,
+      };
+      
+      const map = new window.kakao.maps.Map(mapContainer.current, options);
+      mapInstance.current = map;
+      
+      // Add Zoom Control
+      const zoomControl = new window.kakao.maps.ZoomControl();
+      map.addControl(zoomControl, window.kakao.maps.ControlPosition.RIGHT);
     }
-  }, [loading]);
+  }, [mapLoaded]);
 
-  // Update Markers (Custom Overlays)
+  // 4. Update Markers
   useEffect(() => {
     if (!mapInstance.current || properties.length === 0) return;
 
@@ -107,16 +117,10 @@ const MapSearch: React.FC = () => {
       
       const isSelected = selectedPropId === prop.id;
 
-      // Create Custom Overlay Element
       const content = document.createElement('div');
       content.className = `customoverlay ${isSelected ? 'selected' : ''}`;
-      content.innerHTML = `
-        <span class="title">
-          ${getPriceString(prop)}
-        </span>
-      `;
+      content.innerHTML = `<span class="title">${getPriceString(prop)}</span>`;
 
-      // Handle Click on Marker
       content.onclick = (e) => {
         e.stopPropagation();
         setSelectedPropId(prop.id);
@@ -134,7 +138,7 @@ const MapSearch: React.FC = () => {
       overlaysRef.current.push(customOverlay);
     });
 
-  }, [properties, selectedPropId]);
+  }, [properties, selectedPropId, mapLoaded]); // Re-run when mapLoaded changes to true
 
   const handleListClick = (prop: Property) => {
     setSelectedPropId(prop.id);
@@ -147,8 +151,8 @@ const MapSearch: React.FC = () => {
 
   return (
     <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-white">
-      {/* Left Sidebar - Property List */}
-      <div className="w-96 flex-shrink-0 border-r border-gray-200 flex flex-col bg-white z-10 shadow-xl">
+      {/* List Sidebar */}
+      <div className="w-96 flex-shrink-0 border-r border-gray-200 flex flex-col bg-white z-10 shadow-xl relative">
         <div className="p-4 border-b border-gray-100">
            <div className="relative">
              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -160,12 +164,11 @@ const MapSearch: React.FC = () => {
            </div>
            <div className="flex items-center justify-between mt-3">
              <h2 className="font-bold text-gray-800">매물 목록 ({properties.length})</h2>
-             <button className="text-xs font-semibold text-blue-600">필터 설정</button>
            </div>
         </div>
 
         <div className="flex-grow overflow-y-auto no-scrollbar p-4 space-y-4 bg-gray-50">
-          {loading ? (
+          {loadingData ? (
              <div className="space-y-4">
                {[1,2,3].map(i => <div key={i} className="h-32 bg-gray-200 rounded-xl animate-pulse"/>)}
              </div>
@@ -208,12 +211,18 @@ const MapSearch: React.FC = () => {
         </div>
       </div>
 
-      {/* Right Area - Kakao Map */}
-      <div className="flex-grow relative bg-gray-100">
+      {/* Map Area */}
+      <div className="flex-grow relative bg-gray-100 w-full h-full">
+        {!mapLoaded && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50 z-50">
+            <Loader2 className="animate-spin text-blue-600 mb-2" size={32} />
+            <p className="text-gray-500 font-medium">지도를 불러오는 중입니다...</p>
+          </div>
+        )}
         <div id="map" ref={mapContainer} className="w-full h-full"></div>
         
         {/* Floating Controls */}
-        <div className="absolute top-4 left-4 z-20 bg-white/90 backdrop-blur px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
+        <div className="absolute top-4 left-4 z-20 bg-white/90 backdrop-blur px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 pointer-events-none">
           <Navigation size={16} className="text-blue-600" />
           <span className="text-sm font-bold text-gray-800">지도를 움직여 매물을 찾아보세요</span>
         </div>

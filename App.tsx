@@ -3,8 +3,8 @@ import { HashRouter as Router, Routes, Route, Navigate, Link, useLocation } from
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { auth, db } from './services/firebase';
 import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
-import { UserProfile, ADMIN_EMAIL, Property, PropertyType, PROPERTY_TYPES } from './types';
-import { Menu, User as UserIcon, LogOut, Search, MapPin, Building2, Filter, ChevronDown, Check, X } from 'lucide-react';
+import { UserProfile, ADMIN_EMAIL, Property, PropertyType, PROPERTY_TYPES, TRADE_TYPES, TradeType } from './types';
+import { Menu, User as UserIcon, LogOut, Search, MapPin, Building2, Filter, ChevronDown, Check, X, SlidersHorizontal, RotateCcw } from 'lucide-react';
 
 // Components
 import Admin from './pages/Admin';
@@ -193,6 +193,12 @@ const Home: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
+  
+  // Advanced Filters
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterTradeType, setFilterTradeType] = useState<TradeType | 'ALL'>('ALL');
+  const [priceRange, setPriceRange] = useState<{min: number, max: number}>({ min: 0, max: 0 }); // 0 means no limit
+  const [areaRange, setAreaRange] = useState<{min: number, max: number}>({ min: 0, max: 0 });
 
   useEffect(() => {
     const fetchProps = async () => {
@@ -215,12 +221,12 @@ const Home: React.FC = () => {
   useEffect(() => {
     let result = properties;
 
-    // Filter by Category
+    // 1. Filter by Property Category
     if (activeCategory !== 'ALL') {
       result = result.filter(p => p.type === activeCategory);
     }
 
-    // Filter by Search
+    // 2. Filter by Search Term
     if (searchTerm) {
       result = result.filter(p => 
         p.title.includes(searchTerm) || 
@@ -229,8 +235,41 @@ const Home: React.FC = () => {
       );
     }
 
+    // 3. Filter by Trade Type
+    if (filterTradeType !== 'ALL') {
+      result = result.filter(p => p.tradeType === filterTradeType);
+    }
+
+    // 4. Filter by Price (Simplified: checks price for Sale/Jeonse, deposit for Monthly)
+    if (priceRange.min > 0) {
+      result = result.filter(p => {
+        const value = p.tradeType === 'MONTHLY' ? (p.deposit || 0) : p.price;
+        return value >= priceRange.min;
+      });
+    }
+    if (priceRange.max > 0) {
+      result = result.filter(p => {
+        const value = p.tradeType === 'MONTHLY' ? (p.deposit || 0) : p.price;
+        return value <= priceRange.max;
+      });
+    }
+
+    // 5. Filter by Area
+    if (areaRange.min > 0) {
+      result = result.filter(p => p.area >= areaRange.min);
+    }
+    if (areaRange.max > 0) {
+      result = result.filter(p => p.area <= areaRange.max);
+    }
+
     setFilteredProps(result);
-  }, [activeCategory, searchTerm, properties]);
+  }, [activeCategory, searchTerm, properties, filterTradeType, priceRange, areaRange]);
+
+  const resetFilters = () => {
+    setFilterTradeType('ALL');
+    setPriceRange({ min: 0, max: 0 });
+    setAreaRange({ min: 0, max: 0 });
+  };
 
   return (
     <>
@@ -250,20 +289,111 @@ const Home: React.FC = () => {
             아파트, 오피스텔, 원룸까지. 허위매물 없는 깨끗한 부동산
           </p>
 
-          <div className="bg-white p-2 rounded-2xl shadow-xl max-w-2xl mx-auto flex">
-            <div className="flex-grow flex items-center px-4 border-r border-gray-200">
-               <Search className="text-gray-400 mr-3" />
-               <input 
-                 type="text" 
-                 placeholder="지역명, 지하철역, 건물명으로 검색" 
-                 className="w-full py-3 outline-none text-gray-700"
-                 value={searchTerm}
-                 onChange={(e) => setSearchTerm(e.target.value)}
-               />
+          <div className="bg-white p-2 rounded-2xl shadow-xl max-w-3xl mx-auto">
+            <div className="flex">
+              <div className="flex-grow flex items-center px-4">
+                 <Search className="text-gray-400 mr-3" />
+                 <input 
+                   type="text" 
+                   placeholder="지역명, 지하철역, 건물명으로 검색" 
+                   className="w-full py-3 outline-none text-gray-700"
+                   value={searchTerm}
+                   onChange={(e) => setSearchTerm(e.target.value)}
+                 />
+              </div>
+              <button 
+                onClick={() => setShowFilters(!showFilters)}
+                className={`px-4 flex items-center gap-2 border-l border-gray-200 transition-colors ${showFilters ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600'}`}
+              >
+                <SlidersHorizontal size={20} />
+                <span className="hidden sm:inline font-medium">필터</span>
+              </button>
+              <button className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold transition-colors ml-2">
+                검색
+              </button>
             </div>
-            <button className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold transition-colors">
-              검색
-            </button>
+            
+            {/* Expanded Filters */}
+            {showFilters && (
+              <div className="border-t border-gray-100 mt-2 pt-4 px-4 pb-2 animate-fade-in text-left">
+                <div className="grid md:grid-cols-3 gap-6">
+                  {/* Trade Type Filter */}
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">거래 유형</label>
+                    <div className="flex flex-wrap gap-2">
+                      <button 
+                        onClick={() => setFilterTradeType('ALL')}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${filterTradeType === 'ALL' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                      >
+                        전체
+                      </button>
+                      {Object.keys(TRADE_TYPES).map((key) => (
+                        <button 
+                          key={key}
+                          onClick={() => setFilterTradeType(key as TradeType)}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${filterTradeType === key ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                        >
+                          {TRADE_TYPES[key as TradeType]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Price Filter */}
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">가격/보증금 (만원)</label>
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="number" 
+                        placeholder="최소" 
+                        value={priceRange.min || ''}
+                        onChange={(e) => setPriceRange({...priceRange, min: Number(e.target.value)})}
+                        className="w-full bg-gray-100 border-none rounded-lg py-1.5 px-3 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
+                      />
+                      <span className="text-gray-400">~</span>
+                      <input 
+                        type="number" 
+                        placeholder="최대" 
+                        value={priceRange.max || ''}
+                        onChange={(e) => setPriceRange({...priceRange, max: Number(e.target.value)})}
+                        className="w-full bg-gray-100 border-none rounded-lg py-1.5 px-3 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Area Filter */}
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">면적 (평)</label>
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="number" 
+                        placeholder="최소" 
+                        value={areaRange.min || ''}
+                        onChange={(e) => setAreaRange({...areaRange, min: Number(e.target.value)})}
+                        className="w-full bg-gray-100 border-none rounded-lg py-1.5 px-3 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
+                      />
+                      <span className="text-gray-400">~</span>
+                      <input 
+                        type="number" 
+                        placeholder="최대" 
+                        value={areaRange.max || ''}
+                        onChange={(e) => setAreaRange({...areaRange, max: Number(e.target.value)})}
+                        className="w-full bg-gray-100 border-none rounded-lg py-1.5 px-3 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mt-4 flex justify-end">
+                   <button 
+                     onClick={resetFilters}
+                     className="text-xs font-bold text-gray-400 hover:text-gray-600 flex items-center gap-1"
+                   >
+                     <RotateCcw size={12} /> 필터 초기화
+                   </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -318,7 +448,8 @@ const Home: React.FC = () => {
               <Filter className="text-gray-400" size={32} />
             </div>
             <h3 className="text-lg font-bold text-gray-900 mb-1">조건에 맞는 매물이 없습니다.</h3>
-            <p className="text-gray-500">다른 검색어나 카테고리를 선택해보세요.</p>
+            <p className="text-gray-500">다른 검색어나 필터를 변경해보세요.</p>
+            <button onClick={resetFilters} className="mt-4 text-blue-600 font-bold text-sm">필터 초기화</button>
           </div>
         )}
       </div>
