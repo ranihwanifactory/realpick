@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../services/firebase';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { Property, PROPERTY_TYPES, TRADE_TYPES } from '../types';
-import { Search, MapPin, Navigation, List, Loader2 } from 'lucide-react';
+import { Search, MapPin, Navigation, List, Loader2, AlertCircle } from 'lucide-react';
 
 declare global {
   interface Window {
@@ -14,6 +14,7 @@ const MapSearch: React.FC = () => {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
   const [selectedPropId, setSelectedPropId] = useState<string | null>(null);
   
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -57,7 +58,7 @@ const MapSearch: React.FC = () => {
 
   // Helper to generate dynamic SVG marker image with text
   const createMarkerImage = (text: string, isSelected: boolean) => {
-    if (!window.kakao) return null;
+    if (!window.kakao || !window.kakao.maps) return null;
 
     const width = text.length * 9 + 20;
     const height = 32;
@@ -65,7 +66,6 @@ const MapSearch: React.FC = () => {
     const textColor = isSelected ? '#FFFFFF' : '#374151';
     const borderColor = isSelected ? '#1D4ED8' : '#9CA3AF';
     
-    // SVG string construction
     const svg = `
       <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height + 6}" viewBox="0 0 ${width} ${height + 6}">
         <defs>
@@ -108,23 +108,38 @@ const MapSearch: React.FC = () => {
     fetchProps();
   }, []);
 
-  // 2. Poll for Kakao Map Script
+  // 2. Robust Poll for Kakao Map Script with Timeout
   useEffect(() => {
-    // We expect the script to be in index.html, but it loads asynchronously.
-    // We poll until window.kakao and window.kakao.maps are available.
-    const intervalId = setInterval(() => {
+    let intervalId: any;
+    let timeoutId: any;
+
+    const checkKakao = () => {
       if (window.kakao && window.kakao.maps) {
-        clearInterval(intervalId);
+        // Script loaded, now load the map system
         window.kakao.maps.load(() => {
           setMapLoaded(true);
         });
+        return true;
       }
-    }, 200); // Check every 200ms
+      return false;
+    };
 
-    // Timeout fallback (optional, to stop polling after some time)
-    const timeoutId = setTimeout(() => {
-      clearInterval(intervalId);
-    }, 10000); // Stop checking after 10s
+    if (!checkKakao()) {
+      intervalId = setInterval(() => {
+        if (checkKakao()) {
+          clearInterval(intervalId);
+          clearTimeout(timeoutId);
+        }
+      }, 500);
+
+      // Set a 10-second timeout
+      timeoutId = setTimeout(() => {
+        clearInterval(intervalId);
+        if (!window.kakao || !window.kakao.maps) {
+          setMapError("지도 스크립트를 불러오지 못했습니다. 새로고침 해주세요.");
+        }
+      }, 10000);
+    }
 
     return () => {
       clearInterval(intervalId);
@@ -135,35 +150,42 @@ const MapSearch: React.FC = () => {
   // 3. Initialize Map & Clusterer
   useEffect(() => {
     if (mapLoaded && mapContainer.current && !mapInstance.current) {
-      const options = {
-        center: new window.kakao.maps.LatLng(DEFAULT_LAT, DEFAULT_LNG),
-        level: 5,
-      };
-      
-      const map = new window.kakao.maps.Map(mapContainer.current, options);
-      mapInstance.current = map;
-      
-      const zoomControl = new window.kakao.maps.ZoomControl();
-      map.addControl(zoomControl, window.kakao.maps.ControlPosition.RIGHT);
+      try {
+        const options = {
+          center: new window.kakao.maps.LatLng(DEFAULT_LAT, DEFAULT_LNG),
+          level: 5,
+        };
+        
+        const map = new window.kakao.maps.Map(mapContainer.current, options);
+        mapInstance.current = map;
+        
+        const zoomControl = new window.kakao.maps.ZoomControl();
+        map.addControl(zoomControl, window.kakao.maps.ControlPosition.RIGHT);
 
-      // Initialize Clusterer
-      clustererRef.current = new window.kakao.maps.MarkerClusterer({
-        map: map,
-        averageCenter: true,
-        minLevel: 6,
-        disableClickZoom: false,
-        styles: [{ 
-          width: '50px', 
-          height: '50px',
-          background: 'rgba(37, 99, 235, 0.9)',
-          borderRadius: '25px',
-          color: '#fff',
-          textAlign: 'center',
-          fontWeight: 'bold',
-          lineHeight: '50px',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-        }]
-      });
+        // Initialize Clusterer
+        if (window.kakao.maps.MarkerClusterer) {
+          clustererRef.current = new window.kakao.maps.MarkerClusterer({
+            map: map,
+            averageCenter: true,
+            minLevel: 6,
+            disableClickZoom: false,
+            styles: [{ 
+              width: '50px', 
+              height: '50px',
+              background: 'rgba(37, 99, 235, 0.9)',
+              borderRadius: '25px',
+              color: '#fff',
+              textAlign: 'center',
+              fontWeight: 'bold',
+              lineHeight: '50px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+            }]
+          });
+        }
+      } catch (e) {
+        console.error("Map initialization error:", e);
+        setMapError("지도 초기화 중 오류가 발생했습니다.");
+      }
     }
   }, [mapLoaded]);
 
@@ -181,13 +203,14 @@ const MapSearch: React.FC = () => {
       const priceStr = getPriceString(prop);
       const isSelected = selectedPropId === prop.id;
       
+      const image = createMarkerImage(priceStr, isSelected);
+      
       const marker = new window.kakao.maps.Marker({
         position: position,
-        image: createMarkerImage(priceStr, isSelected),
+        image: image,
         zIndex: isSelected ? 10 : 0
       });
 
-      // Marker Click Event
       window.kakao.maps.event.addListener(marker, 'click', () => {
         setSelectedPropId(prop.id);
         mapInstance.current.panTo(position);
@@ -203,25 +226,26 @@ const MapSearch: React.FC = () => {
 
   // 5. Update Selected Marker Visuals
   useEffect(() => {
-    if (markersMapRef.current.size === 0) return;
+    if (markersMapRef.current.size === 0 || !mapLoaded) return;
 
     properties.forEach(prop => {
       const marker = markersMapRef.current.get(prop.id);
       if (marker) {
         const isSelected = selectedPropId === prop.id;
         const priceStr = getPriceString(prop);
-        
-        // Update marker image to reflect selection state
-        marker.setImage(createMarkerImage(priceStr, isSelected));
-        marker.setZIndex(isSelected ? 10 : 0);
+        const image = createMarkerImage(priceStr, isSelected);
+        if (image) {
+          marker.setImage(image);
+          marker.setZIndex(isSelected ? 10 : 0);
+        }
       }
     });
-  }, [selectedPropId, properties]);
+  }, [selectedPropId, properties, mapLoaded]);
 
   const handleListClick = (prop: Property) => {
     setSelectedPropId(prop.id);
     const coords = getCoordinates(prop.id);
-    if (mapInstance.current) {
+    if (mapInstance.current && window.kakao) {
       const moveLatLon = new window.kakao.maps.LatLng(coords.lat, coords.lng);
       mapInstance.current.panTo(moveLatLon);
       
@@ -295,13 +319,19 @@ const MapSearch: React.FC = () => {
 
       {/* Map Area */}
       <div className="flex-grow relative bg-gray-100 w-full h-full">
-        {!mapLoaded && (
+        {mapError ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50 z-50 px-4 text-center">
+            <AlertCircle className="text-red-500 mb-2" size={48} />
+            <p className="text-gray-800 font-bold mb-1">지도를 불러올 수 없습니다</p>
+            <p className="text-gray-500 text-sm">{mapError}</p>
+          </div>
+        ) : !mapLoaded && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50 z-50">
             <Loader2 className="animate-spin text-blue-600 mb-2" size={32} />
             <p className="text-gray-500 font-medium">지도를 불러오는 중입니다...</p>
           </div>
         )}
-        <div id="map" ref={mapContainer} className="w-full h-full"></div>
+        <div id="map" ref={mapContainer} style={{ width: '100%', height: '100%' }}></div>
         
         {/* Floating Controls */}
         <div className="absolute top-4 left-4 z-20 bg-white/90 backdrop-blur px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 pointer-events-none">

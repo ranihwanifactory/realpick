@@ -1,4 +1,6 @@
-/* Base styles */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* This file is intentionally left empty to prevent 404 errors. 
+   Tailwind CSS is loaded via CDN in index.html. */
+body {
+  margin: 0;
+  padding: 0;
+}
