@@ -290,32 +290,34 @@ const Home: React.FC = () => {
           </p>
 
           <div className="bg-white p-2 rounded-2xl shadow-xl max-w-3xl mx-auto">
-            <div className="flex">
-              <div className="flex-grow flex items-center px-4">
+            <div className="flex flex-col md:flex-row">
+              <div className="flex-grow flex items-center px-4 py-2">
                  <Search className="text-gray-400 mr-3" />
                  <input 
                    type="text" 
                    placeholder="지역명, 지하철역, 건물명으로 검색" 
-                   className="w-full py-3 outline-none text-gray-700"
+                   className="w-full py-2 outline-none text-gray-700"
                    value={searchTerm}
                    onChange={(e) => setSearchTerm(e.target.value)}
                  />
               </div>
-              <button 
-                onClick={() => setShowFilters(!showFilters)}
-                className={`px-4 flex items-center gap-2 border-l border-gray-200 transition-colors ${showFilters ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600'}`}
-              >
-                <SlidersHorizontal size={20} />
-                <span className="hidden sm:inline font-medium">필터</span>
-              </button>
-              <button className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold transition-colors ml-2">
-                검색
-              </button>
+              <div className="flex border-t md:border-t-0 md:border-l border-gray-100">
+                <button 
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`flex-1 md:flex-none px-6 py-4 md:py-0 flex items-center justify-center gap-2 transition-colors ${showFilters ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600'}`}
+                >
+                  <SlidersHorizontal size={20} />
+                  <span className="font-medium">필터</span>
+                </button>
+                <button className="flex-1 md:flex-none bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 md:py-0 rounded-b-xl md:rounded-r-xl md:rounded-bl-none font-bold transition-colors">
+                  검색
+                </button>
+              </div>
             </div>
             
             {/* Expanded Filters */}
             {showFilters && (
-              <div className="border-t border-gray-100 mt-2 pt-4 px-4 pb-2 animate-fade-in text-left">
+              <div className="border-t border-gray-100 mt-2 pt-4 px-6 pb-6 animate-fade-in text-left">
                 <div className="grid md:grid-cols-3 gap-6">
                   {/* Trade Type Filter */}
                   <div>

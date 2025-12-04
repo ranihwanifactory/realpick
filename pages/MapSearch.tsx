@@ -24,7 +24,7 @@ const MapSearch: React.FC = () => {
   const DEFAULT_LAT = 37.4979;
   const DEFAULT_LNG = 127.0276;
 
-  // Generate pseudo-coordinates based on ID hash
+  // Generate pseudo-coordinates based on ID hash (Simulation for demo)
   const getCoordinates = (id: string) => {
     let hash = 0;
     for (let i = 0; i < id.length; i++) {
@@ -64,7 +64,7 @@ const MapSearch: React.FC = () => {
         snap.forEach(d => data.push({ id: d.id, ...d.data() } as Property));
         setProperties(data);
       } catch (err) {
-        console.error(err);
+        console.error("Failed to fetch properties:", err);
       } finally {
         setLoadingData(false);
       }
@@ -72,21 +72,43 @@ const MapSearch: React.FC = () => {
     fetchProps();
   }, []);
 
-  // 2. Load Map Script securely
+  // 2. Dynamic Script Loading for Stability
   useEffect(() => {
-    const checkKakao = setInterval(() => {
-      if (window.kakao && window.kakao.maps) {
-        clearInterval(checkKakao);
-        window.kakao.maps.load(() => {
-          setMapLoaded(true);
-        });
-      }
-    }, 500); // Check every 500ms
+    const scriptId = 'kakao-map-script';
+    const isScriptExist = document.getElementById(scriptId);
+    
+    // If map is already loaded in global window, just set state
+    if (window.kakao && window.kakao.maps) {
+      window.kakao.maps.load(() => {
+        setMapLoaded(true);
+      });
+      return;
+    }
 
-    return () => clearInterval(checkKakao);
+    if (!isScriptExist) {
+      const script = document.createElement('script');
+      script.id = scriptId;
+      // Using autoload=false to manually initialize via window.kakao.maps.load
+      script.src = '//dapi.kakao.com/v2/maps/sdk.js?appkey=7e88cf2e2962d67bb246f38f504dc200&libraries=services,clusterer&autoload=false';
+      
+      script.onload = () => {
+        if (window.kakao && window.kakao.maps) {
+          window.kakao.maps.load(() => {
+            setMapLoaded(true);
+          });
+        }
+      };
+
+      script.onerror = () => {
+        console.error("Failed to load Kakao Map script");
+        // Retry logic or user alert could go here
+      };
+
+      document.head.appendChild(script);
+    }
   }, []);
 
-  // 3. Initialize Map when script is ready
+  // 3. Initialize Map
   useEffect(() => {
     if (mapLoaded && mapContainer.current && !mapInstance.current) {
       const options = {
@@ -97,7 +119,6 @@ const MapSearch: React.FC = () => {
       const map = new window.kakao.maps.Map(mapContainer.current, options);
       mapInstance.current = map;
       
-      // Add Zoom Control
       const zoomControl = new window.kakao.maps.ZoomControl();
       map.addControl(zoomControl, window.kakao.maps.ControlPosition.RIGHT);
     }
@@ -105,7 +126,7 @@ const MapSearch: React.FC = () => {
 
   // 4. Update Markers
   useEffect(() => {
-    if (!mapInstance.current || properties.length === 0) return;
+    if (!mapInstance.current || properties.length === 0 || !mapLoaded) return;
 
     // Clear existing overlays
     overlaysRef.current.forEach(overlay => overlay.setMap(null));
@@ -138,7 +159,7 @@ const MapSearch: React.FC = () => {
       overlaysRef.current.push(customOverlay);
     });
 
-  }, [properties, selectedPropId, mapLoaded]); // Re-run when mapLoaded changes to true
+  }, [properties, selectedPropId, mapLoaded]);
 
   const handleListClick = (prop: Property) => {
     setSelectedPropId(prop.id);
