@@ -34,6 +34,7 @@ export interface NewsArticle {
   date: string;
   imageUrl: string;
   source: string;
+  createdAt: number;
 }
 
 export const ADMIN_EMAIL = 'acehwan69@gmail.com';
