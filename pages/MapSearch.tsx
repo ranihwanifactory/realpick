@@ -25,7 +25,7 @@ const MapSearch: React.FC = () => {
   const DEFAULT_LAT = 37.4979;
   const DEFAULT_LNG = 127.0276;
 
-  // Generate pseudo-coordinates based on ID hash (Simulation for demo)
+  // Generate pseudo-coordinates based on ID hash
   const getCoordinates = (id: string) => {
     let hash = 0;
     for (let i = 0; i < id.length; i++) {
@@ -59,7 +59,7 @@ const MapSearch: React.FC = () => {
   const createMarkerImage = (text: string, isSelected: boolean) => {
     if (!window.kakao) return null;
 
-    const width = text.length * 9 + 20; // Approximate width based on text length
+    const width = text.length * 9 + 20;
     const height = 32;
     const bgColor = isSelected ? '#2563EB' : '#FFFFFF';
     const textColor = isSelected ? '#FFFFFF' : '#374151';
@@ -108,33 +108,28 @@ const MapSearch: React.FC = () => {
     fetchProps();
   }, []);
 
-  // 2. Dynamic Script Loading
+  // 2. Poll for Kakao Map Script
   useEffect(() => {
-    const scriptId = 'kakao-map-script';
-    const isScriptExist = document.getElementById(scriptId);
-    
-    if (window.kakao && window.kakao.maps) {
-      window.kakao.maps.load(() => {
-        setMapLoaded(true);
-      });
-      return;
-    }
+    // We expect the script to be in index.html, but it loads asynchronously.
+    // We poll until window.kakao and window.kakao.maps are available.
+    const intervalId = setInterval(() => {
+      if (window.kakao && window.kakao.maps) {
+        clearInterval(intervalId);
+        window.kakao.maps.load(() => {
+          setMapLoaded(true);
+        });
+      }
+    }, 200); // Check every 200ms
 
-    if (!isScriptExist) {
-      const script = document.createElement('script');
-      script.id = scriptId;
-      script.src = '//dapi.kakao.com/v2/maps/sdk.js?appkey=7e88cf2e2962d67bb246f38f504dc200&libraries=services,clusterer&autoload=false';
-      
-      script.onload = () => {
-        if (window.kakao && window.kakao.maps) {
-          window.kakao.maps.load(() => {
-            setMapLoaded(true);
-          });
-        }
-      };
-      script.onerror = () => console.error("Failed to load Kakao Map script");
-      document.head.appendChild(script);
-    }
+    // Timeout fallback (optional, to stop polling after some time)
+    const timeoutId = setTimeout(() => {
+      clearInterval(intervalId);
+    }, 10000); // Stop checking after 10s
+
+    return () => {
+      clearInterval(intervalId);
+      clearTimeout(timeoutId);
+    };
   }, []);
 
   // 3. Initialize Map & Clusterer
@@ -155,9 +150,9 @@ const MapSearch: React.FC = () => {
       clustererRef.current = new window.kakao.maps.MarkerClusterer({
         map: map,
         averageCenter: true,
-        minLevel: 6, // Show markers below level 6, show clusters at level 6 and above
-        disableClickZoom: false, // Double click zoom on cluster
-        styles: [{ // Custom cluster style
+        minLevel: 6,
+        disableClickZoom: false,
+        styles: [{ 
           width: '50px', 
           height: '50px',
           background: 'rgba(37, 99, 235, 0.9)',
@@ -204,13 +199,12 @@ const MapSearch: React.FC = () => {
 
     clustererRef.current.addMarkers(newMarkers);
 
-  }, [properties, mapLoaded]); // Don't include selectedPropId here to avoid full recreate
+  }, [properties, mapLoaded]);
 
   // 5. Update Selected Marker Visuals
   useEffect(() => {
     if (markersMapRef.current.size === 0) return;
 
-    // Efficiently update only relevant markers if possible, or all (simple for small N)
     properties.forEach(prop => {
       const marker = markersMapRef.current.get(prop.id);
       if (marker) {
@@ -231,7 +225,6 @@ const MapSearch: React.FC = () => {
       const moveLatLon = new window.kakao.maps.LatLng(coords.lat, coords.lng);
       mapInstance.current.panTo(moveLatLon);
       
-      // If we are zoomed out, zoom in to see the marker instead of cluster
       if (mapInstance.current.getLevel() > 5) {
         mapInstance.current.setLevel(5, { animate: true });
       }
