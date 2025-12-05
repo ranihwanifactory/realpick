@@ -1,6 +1,6 @@
 {
-  "name": "HomePick Korea",
-  "description": "A premium Korean real estate platform offering dynamic listings, category filtering, and secure management for realtors.",
+  "name": "K-Estate Hub",
+  "description": "A modern Korean real estate platform featuring dynamic listings, map search via Kakao Maps, and Firebase integration.",
   "requestFramePermissions": [
     "geolocation"
   ]

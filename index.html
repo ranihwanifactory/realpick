@@ -1,106 +1,47 @@
 <!DOCTYPE html>
 <html lang="ko">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>HomePick - 프리미엄 부동산</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>K-Estate Hub | 한국 부동산</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Noto Sans KR for Korean text support -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
     <!-- Kakao Map SDK -->
     <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=08318a127595566819a1c38d00deaab2&libraries=services,clusterer"></script>
     <style>
       body {
         font-family: 'Noto Sans KR', sans-serif;
-        background-color: #f8f9fa;
       }
-      /* Hide scrollbar for horizontal scrolling areas */
-      .no-scrollbar::-webkit-scrollbar {
-        display: none;
+      /* Custom scrollbar for webkit */
+      ::-webkit-scrollbar {
+        width: 8px;
       }
-      .no-scrollbar {
-        -ms-overflow-style: none;
-        scrollbar-width: none;
+      ::-webkit-scrollbar-track {
+        background: #f1f1f1; 
       }
-      
-      /* Kakao Map Custom Overlay Styles */
-      .customoverlay {
-        position: relative;
-        bottom: 10px;
-        border-radius: 6px;
-        border: 1px solid #ccc;
-        border-bottom: 2px solid #ddd;
-        float: left;
+      ::-webkit-scrollbar-thumb {
+        background: #cbd5e1; 
+        border-radius: 4px;
       }
-      .customoverlay:nth-of-type(n) {
-        border: 0; box-shadow: 0px 1px 2px #888;
-      }
-      .customoverlay .title {
-        display: block;
-        text-align: center;
-        background: #fff;
-        margin-right: 35px;
-        padding: 5px 10px;
-        font-size: 12px;
-        font-weight: bold;
-        border-radius: 8px;
-        white-space: nowrap;
-        color: #374151;
-      }
-      .customoverlay.selected .title {
-        background: #2563EB;
-        color: #fff;
-        border: 1px solid #1D4ED8;
-      }
-      .customoverlay:after {
-        content: '';
-        position: absolute;
-        margin-left: -6px;
-        left: 50%;
-        bottom: -8px;
-        width: 12px;
-        height: 8px;
-        background: url('https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/vertex_white.png');
-      }
-      .customoverlay.selected:after {
-         border-top: 8px solid #2563EB;
-         background: none;
-         width: 0; 
-         height: 0; 
-         border-left: 6px solid transparent;
-         border-right: 6px solid transparent;
-      }
-      
-      /* Animations */
-      @keyframes slideInRight {
-        from { transform: translateX(100%); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
-      }
-      .animate-slide-in-right {
-        animation: slideInRight 0.3s ease-out forwards;
-      }
-      @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-      }
-      .animate-fade-in {
-        animation: fadeIn 0.2s ease-out forwards;
+      ::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8; 
       }
     </style>
   <script type="importmap">
 {
   "imports": {
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
-    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.10.0",
-    "firebase/": "https://aistudiocdn.com/firebase@^12.6.0/"
+    "react/": "https://aistudiocdn.com/react@^19.2.1/",
+    "react": "https://aistudiocdn.com/react@^19.2.1",
+    "firebase/": "https://aistudiocdn.com/firebase@^12.6.0/",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0"
   }
 }
 </script>
 <link rel="stylesheet" href="/index.css">
 </head>
-  <body>
+  <body class="bg-gray-50 text-gray-900">
     <div id="root"></div>
   <script type="module" src="/index.tsx"></script>
 </body>

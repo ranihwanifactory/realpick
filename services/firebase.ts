@@ -1,8 +1,8 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, User } from "firebase/auth";
+import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, orderBy, onSnapshot } from "firebase/firestore";
 
+// Configuration provided by user
 const firebaseConfig = {
   apiKey: "AIzaSyBvTQOD-bDKTzG1dQenH311OBQ9pzYzsUY",
   authDomain: "sjnb-a6742.firebaseapp.com",
@@ -13,10 +13,32 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-
 export const auth = getAuth(app);
-export const googleProvider = new GoogleAuthProvider();
 export const db = getFirestore(app);
-export const storage = getStorage(app);
+export const googleProvider = new GoogleAuthProvider();
 
-export default app;
+// Auth Helpers
+export const signInWithGoogle = async () => {
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+    return result.user;
+  } catch (error) {
+    console.error("Error signing in with Google", error);
+    throw error;
+  }
+};
+
+export const logout = async () => {
+  try {
+    await signOut(auth);
+  } catch (error) {
+    console.error("Error signing out", error);
+  }
+};
+
+// Types needed for global usage if window needs them
+declare global {
+  interface Window {
+    kakao: any;
+  }
+}
