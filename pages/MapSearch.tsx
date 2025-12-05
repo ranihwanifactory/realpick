@@ -10,6 +10,9 @@ declare global {
   }
 }
 
+// New API Key provided by user
+const KAKAO_API_KEY = '08318a127595566819a1c38d00deaab2';
+
 const MapSearch: React.FC = () => {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loadingData, setLoadingData] = useState(true);
@@ -107,40 +110,46 @@ const MapSearch: React.FC = () => {
     fetchProps();
   }, []);
 
-  // 2. Poll for Kakao Map Script
+  // 2. Load Kakao Map Script Dynamically
   useEffect(() => {
-    let intervalId: any;
-    let timeoutId: any;
-
-    const loadKakaoMap = () => {
-      if (window.kakao && window.kakao.maps) {
-        window.kakao.maps.load(() => {
-          setMapLoaded(true);
-        });
-        return true;
-      }
-      return false;
-    };
-
-    if (!loadKakaoMap()) {
-      intervalId = setInterval(() => {
-        if (loadKakaoMap()) {
-          clearInterval(intervalId);
-          clearTimeout(timeoutId);
-        }
-      }, 500);
-
-      timeoutId = setTimeout(() => {
-        clearInterval(intervalId);
-        if (!window.kakao || !window.kakao.maps) {
-          setMapError("Kakao Map 스크립트 로드 실패. 네트워크 상태를 확인하거나 새로고침 해주세요.");
-        }
-      }, 10000); // 10 seconds timeout
+    const scriptId = 'kakao-map-script';
+    
+    // Check if script already exists
+    if (document.getElementById(scriptId)) {
+       if (window.kakao && window.kakao.maps) {
+         setMapLoaded(true);
+       } else {
+         // Existing script not fully loaded, wait for it
+         const interval = setInterval(() => {
+           if (window.kakao && window.kakao.maps) {
+             window.kakao.maps.load(() => setMapLoaded(true));
+             clearInterval(interval);
+           }
+         }, 100);
+         setTimeout(() => clearInterval(interval), 5000);
+       }
+       return;
     }
 
+    const script = document.createElement('script');
+    script.id = scriptId;
+    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_API_KEY}&libraries=services,clusterer&autoload=false`;
+    script.async = true;
+    
+    script.onload = () => {
+      window.kakao.maps.load(() => {
+        setMapLoaded(true);
+      });
+    };
+    
+    script.onerror = () => {
+      setMapError("Kakao 지도를 불러오는데 실패했습니다. 네트워크를 확인해주세요.");
+    };
+
+    document.head.appendChild(script);
+
     return () => {
-      clearInterval(intervalId);
-      clearTimeout(timeoutId);
+      // Cleanup if needed, but usually we keep the script
     };
   }, []);
 
@@ -320,11 +329,10 @@ const MapSearch: React.FC = () => {
             <h3 className="text-xl font-bold text-gray-900 mb-2">지도를 불러올 수 없습니다</h3>
             <p className="text-gray-600 mb-4 max-w-md">{mapError}</p>
             <div className="bg-blue-50 p-4 rounded-lg text-left text-sm text-blue-800 max-w-md w-full border border-blue-100">
-              <p className="font-bold flex items-center gap-2 mb-2"><Settings size={16}/> 해결 방법:</p>
+              <p className="font-bold flex items-center gap-2 mb-2"><Settings size={16}/> 확인 사항:</p>
               <ul className="list-disc list-inside space-y-1">
-                <li>Kakao Developers 콘솔에 로그인하세요.</li>
-                <li>[내 애플리케이션] &gt; [플랫폼] &gt; [Web] 설정으로 이동하세요.</li>
-                <li><strong>{window.location.origin}</strong> 도메인을 등록해주세요.</li>
+                <li>Kakao Developers > 플랫폼 > Web에 현재 도메인이 등록되어 있나요?</li>
+                <li>API 키가 정확한지 확인해주세요.</li>
               </ul>
             </div>
           </div>
