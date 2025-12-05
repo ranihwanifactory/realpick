@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../services/firebase';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { Property, PROPERTY_TYPES, TRADE_TYPES } from '../types';
-import { Search, MapPin, Navigation, List, Loader2, AlertCircle } from 'lucide-react';
+import { Search, MapPin, Navigation, List, Loader2, AlertCircle, Settings } from 'lucide-react';
 
 declare global {
   interface Window {
@@ -56,7 +56,6 @@ const MapSearch: React.FC = () => {
     return formatMoney(prop.price);
   };
 
-  // Helper to generate dynamic SVG marker image with text
   const createMarkerImage = (text: string, isSelected: boolean) => {
     if (!window.kakao || !window.kakao.maps) return null;
 
@@ -108,14 +107,13 @@ const MapSearch: React.FC = () => {
     fetchProps();
   }, []);
 
-  // 2. Robust Poll for Kakao Map Script with Timeout
+  // 2. Poll for Kakao Map Script
   useEffect(() => {
     let intervalId: any;
     let timeoutId: any;
 
-    const checkKakao = () => {
+    const loadKakaoMap = () => {
       if (window.kakao && window.kakao.maps) {
-        // Script loaded, now load the map system
         window.kakao.maps.load(() => {
           setMapLoaded(true);
         });
@@ -124,21 +122,20 @@ const MapSearch: React.FC = () => {
       return false;
     };
 
-    if (!checkKakao()) {
+    if (!loadKakaoMap()) {
       intervalId = setInterval(() => {
-        if (checkKakao()) {
+        if (loadKakaoMap()) {
           clearInterval(intervalId);
           clearTimeout(timeoutId);
         }
       }, 500);
 
-      // Set a 10-second timeout
       timeoutId = setTimeout(() => {
         clearInterval(intervalId);
         if (!window.kakao || !window.kakao.maps) {
-          setMapError("지도 스크립트를 불러오지 못했습니다. 새로고침 해주세요.");
+          setMapError("Kakao Map 스크립트 로드 실패. 네트워크 상태를 확인하거나 새로고침 해주세요.");
         }
-      }, 10000);
+      }, 10000); // 10 seconds timeout
     }
 
     return () => {
@@ -147,7 +144,7 @@ const MapSearch: React.FC = () => {
     };
   }, []);
 
-  // 3. Initialize Map & Clusterer
+  // 3. Initialize Map
   useEffect(() => {
     if (mapLoaded && mapContainer.current && !mapInstance.current) {
       try {
@@ -162,7 +159,6 @@ const MapSearch: React.FC = () => {
         const zoomControl = new window.kakao.maps.ZoomControl();
         map.addControl(zoomControl, window.kakao.maps.ControlPosition.RIGHT);
 
-        // Initialize Clusterer
         if (window.kakao.maps.MarkerClusterer) {
           clustererRef.current = new window.kakao.maps.MarkerClusterer({
             map: map,
@@ -184,16 +180,15 @@ const MapSearch: React.FC = () => {
         }
       } catch (e) {
         console.error("Map initialization error:", e);
-        setMapError("지도 초기화 중 오류가 발생했습니다.");
+        setMapError("지도를 초기화하는 중 오류가 발생했습니다. API 키 설정을 확인해주세요.");
       }
     }
   }, [mapLoaded]);
 
-  // 4. Create and Cluster Markers
+  // 4. Update Markers
   useEffect(() => {
     if (!mapInstance.current || !clustererRef.current || properties.length === 0 || !mapLoaded) return;
 
-    // Clear existing
     clustererRef.current.clear();
     markersMapRef.current.clear();
 
@@ -221,10 +216,9 @@ const MapSearch: React.FC = () => {
     });
 
     clustererRef.current.addMarkers(newMarkers);
-
   }, [properties, mapLoaded]);
 
-  // 5. Update Selected Marker Visuals
+  // 5. Update Selection Visuals
   useEffect(() => {
     if (markersMapRef.current.size === 0 || !mapLoaded) return;
 
@@ -256,10 +250,10 @@ const MapSearch: React.FC = () => {
   };
 
   return (
-    <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-white">
+    <div className="flex h-full bg-white relative">
       {/* List Sidebar */}
-      <div className="w-96 flex-shrink-0 border-r border-gray-200 flex flex-col bg-white z-10 shadow-xl relative">
-        <div className="p-4 border-b border-gray-100">
+      <div className="w-96 flex-shrink-0 border-r border-gray-200 flex flex-col bg-white z-10 shadow-xl absolute top-0 left-0 bottom-0 md:relative transform transition-transform duration-300 md:transform-none">
+        <div className="p-4 border-b border-gray-100 bg-white">
            <div className="relative">
              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
              <input 
@@ -319,11 +313,20 @@ const MapSearch: React.FC = () => {
 
       {/* Map Area */}
       <div className="flex-grow relative bg-gray-100 w-full h-full">
+        {/* Error State */}
         {mapError ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50 z-50 px-4 text-center">
-            <AlertCircle className="text-red-500 mb-2" size={48} />
-            <p className="text-gray-800 font-bold mb-1">지도를 불러올 수 없습니다</p>
-            <p className="text-gray-500 text-sm">{mapError}</p>
+            <AlertCircle className="text-red-500 mb-4" size={48} />
+            <h3 className="text-xl font-bold text-gray-900 mb-2">지도를 불러올 수 없습니다</h3>
+            <p className="text-gray-600 mb-4 max-w-md">{mapError}</p>
+            <div className="bg-blue-50 p-4 rounded-lg text-left text-sm text-blue-800 max-w-md w-full border border-blue-100">
+              <p className="font-bold flex items-center gap-2 mb-2"><Settings size={16}/> 해결 방법:</p>
+              <ul className="list-disc list-inside space-y-1">
+                <li>Kakao Developers 콘솔에 로그인하세요.</li>
+                <li>[내 애플리케이션] &gt; [플랫폼] &gt; [Web] 설정으로 이동하세요.</li>
+                <li><strong>{window.location.origin}</strong> 도메인을 등록해주세요.</li>
+              </ul>
+            </div>
           </div>
         ) : !mapLoaded && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50 z-50">
@@ -331,7 +334,14 @@ const MapSearch: React.FC = () => {
             <p className="text-gray-500 font-medium">지도를 불러오는 중입니다...</p>
           </div>
         )}
-        <div id="map" ref={mapContainer} style={{ width: '100%', height: '100%' }}></div>
+        
+        {/* Map Container - Uses absolute positioning to force fill */}
+        <div 
+          id="map" 
+          ref={mapContainer} 
+          className="absolute inset-0 w-full h-full"
+          style={{ width: '100%', height: '100%' }}
+        ></div>
         
         {/* Floating Controls */}
         <div className="absolute top-4 left-4 z-20 bg-white/90 backdrop-blur px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 pointer-events-none">
