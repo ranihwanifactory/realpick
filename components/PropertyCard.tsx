@@ -1,78 +1,74 @@
 import React from 'react';
-import { Property, PropertyType, DealType } from '../types';
-import { formatFullPrice } from '../utils/format';
-import { MapPin, Building, Ruler } from 'lucide-react';
+import { Property } from '../types';
 
 interface PropertyCardProps {
   property: Property;
-  onClick: () => void;
-  isAdmin?: boolean;
-  onDelete?: (id: string) => void;
+  onClose: () => void;
 }
 
-const PropertyCard: React.FC<PropertyCardProps> = ({ property, onClick, isAdmin, onDelete }) => {
+const PropertyCard: React.FC<PropertyCardProps> = ({ property, onClose }) => {
+  const formatPrice = (price: number) => {
+    if (price >= 10000) {
+      const eok = Math.floor(price / 10000);
+      const man = price % 10000;
+      return `${eok}억 ${man > 0 ? man + '만원' : ''}`;
+    }
+    return `${price}만원`;
+  };
+
+  const getTypeLabel = (type: Property['type']) => {
+    const labels = {
+      apartment: '아파트',
+      house: '주택',
+      studio: '원룸/오피스텔',
+      land: '토지'
+    };
+    return labels[type] || '기타';
+  };
+
   return (
-    <div 
-      className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden border border-gray-100 flex flex-col h-full cursor-pointer group"
-      onClick={onClick}
-    >
-      {/* Image Section */}
-      <div className="relative h-48 w-full overflow-hidden bg-gray-200">
+    <div className="fixed bottom-0 left-0 right-0 sm:left-auto sm:right-6 sm:bottom-6 sm:w-96 bg-white sm:rounded-2xl shadow-2xl z-40 overflow-hidden animate-slide-up border border-gray-100 flex flex-col max-h-[60vh] sm:max-h-[80vh]">
+      <div className="relative h-48 sm:h-56 bg-gray-200 shrink-0">
         <img 
           src={property.imageUrl} 
           alt={property.title} 
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          loading="lazy"
+          className="w-full h-full object-cover"
         />
-        <div className="absolute top-3 left-3 flex gap-1">
-          <span className={`px-2 py-1 text-xs font-bold rounded-md text-white
-            ${property.dealType === 'SALE' ? 'bg-blue-600' : ''}
-            ${property.dealType === 'JEONSE' ? 'bg-green-600' : ''}
-            ${property.dealType === 'WOLSE' ? 'bg-orange-500' : ''}
-          `}>
-            {DealType[property.dealType]}
-          </span>
-          <span className="px-2 py-1 text-xs font-medium bg-black/60 text-white rounded-md backdrop-blur-sm">
-            {PropertyType[property.type]}
-          </span>
+        <button 
+          onClick={onClose}
+          className="absolute top-3 right-3 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 transition backdrop-blur-sm"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+        <div className="absolute top-3 left-3 bg-indigo-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide shadow-sm">
+          {getTypeLabel(property.type)}
+        </div>
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
+           <h3 className="text-white text-xl font-bold truncate shadow-sm">{property.title}</h3>
         </div>
       </div>
-
-      {/* Content Section */}
-      <div className="p-4 flex flex-col flex-1">
-        <h3 className="text-xl font-bold text-gray-900 mb-1 truncate">
-          {formatFullPrice(property.dealType, property.price, property.deposit)}
-        </h3>
-        
-        <div className="flex items-center text-gray-500 text-sm mb-3">
-           <Ruler size={14} className="mr-1" />
-           <span>{property.area}m² ({Math.round(property.area / 3.30579)}평)</span>
-           <span className="mx-2">•</span>
-           <span>{property.floor}층</span>
+      
+      <div className="p-5 overflow-y-auto">
+        <div className="flex justify-between items-baseline mb-4">
+          <span className="text-2xl font-extrabold text-indigo-600">{formatPrice(property.price)}</span>
+          <span className="text-xs text-gray-400">{new Date(property.createdAt).toLocaleDateString()}</span>
         </div>
-
-        <h4 className="font-medium text-gray-800 line-clamp-1 mb-1">{property.title}</h4>
         
-        <div className="flex items-center text-gray-400 text-xs mt-auto">
-          <MapPin size={12} className="mr-1" />
-          <span className="truncate">{property.address}</span>
+        <p className="text-gray-600 text-sm leading-relaxed mb-6 whitespace-pre-line">
+          {property.description || "상세 설명이 없습니다."}
+        </p>
+
+        <div className="mt-auto">
+            <button className="w-full bg-gray-900 hover:bg-gray-800 text-white font-bold py-3 rounded-xl transition shadow-lg flex items-center justify-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                </svg>
+                문의하기
+            </button>
         </div>
       </div>
-
-      {/* Admin Actions */}
-      {isAdmin && onDelete && (
-        <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 flex justify-end">
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              if(window.confirm('정말 삭제하시겠습니까?')) onDelete(property.id);
-            }}
-            className="text-xs text-red-600 hover:text-red-800 font-medium px-2 py-1 hover:bg-red-50 rounded"
-          >
-            매물 삭제
-          </button>
-        </div>
-      )}
     </div>
   );
 };
