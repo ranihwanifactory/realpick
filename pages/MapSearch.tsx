@@ -113,7 +113,9 @@ const MapSearch: React.FC = () => {
     let timeoutId: any;
 
     const checkKakao = () => {
+      // Check if the script object exists
       if (window.kakao && window.kakao.maps) {
+        // Only valid when autoload=false is used in script tag
         window.kakao.maps.load(() => {
           setMapLoaded(true);
         });
@@ -122,6 +124,7 @@ const MapSearch: React.FC = () => {
       return false;
     };
 
+    // Immediate check
     if (!checkKakao()) {
       intervalId = setInterval(() => {
         if (checkKakao()) {
@@ -134,7 +137,7 @@ const MapSearch: React.FC = () => {
       timeoutId = setTimeout(() => {
         clearInterval(intervalId);
         if (!window.kakao || !window.kakao.maps) {
-          setMapError("지도 스크립트를 불러오지 못했습니다. 새로고침 해주세요.");
+          setMapError("지도 스크립트를 불러오지 못했습니다. 네트워크 연결을 확인하거나 새로고침 해주세요.");
         }
       }, 10000);
     }
@@ -325,6 +328,7 @@ const MapSearch: React.FC = () => {
               <ul className="list-disc list-inside space-y-1">
                 <li>Kakao Developers &gt; 플랫폼 &gt; Web에 현재 도메인이 등록되어 있나요?</li>
                 <li>API 키가 정확한지 확인해주세요.</li>
+                <li>로컬(localhost)에서 실행 중이라면 플랫폼에 등록되어야 합니다.</li>
               </ul>
             </div>
           </div>
