@@ -67,9 +67,10 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
+  const isMapPage = location.pathname === '/map';
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-800 font-sans flex flex-col">
+    <div className={`bg-gray-50 text-gray-800 font-sans flex flex-col ${isMapPage ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
       <nav className="sticky top-0 z-40 bg-white border-b border-gray-100 shadow-sm backdrop-blur-md bg-opacity-90 flex-shrink-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
@@ -139,14 +140,14 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         )}
       </nav>
 
-      <main className="flex-grow">
+      <main className="flex-grow flex flex-col relative">
         {children}
       </main>
 
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
       
       {/* Hide Footer on Map Page for full screen experience */}
-      {location.pathname !== '/map' && (
+      {!isMapPage && (
         <footer className="bg-gray-900 text-gray-400 py-12 mt-auto">
           <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8">
             <div className="col-span-1 md:col-span-2">
@@ -185,7 +186,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   );
 };
 
-// Home Page Component
+// Home Page Component (Unchanged)
 const Home: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<string>('ALL');
   const [properties, setProperties] = useState<Property[]>([]);
@@ -221,12 +222,10 @@ const Home: React.FC = () => {
   useEffect(() => {
     let result = properties;
 
-    // 1. Filter by Property Category
     if (activeCategory !== 'ALL') {
       result = result.filter(p => p.type === activeCategory);
     }
 
-    // 2. Filter by Search Term
     if (searchTerm) {
       result = result.filter(p => 
         p.title.includes(searchTerm) || 
@@ -235,12 +234,10 @@ const Home: React.FC = () => {
       );
     }
 
-    // 3. Filter by Trade Type
     if (filterTradeType !== 'ALL') {
       result = result.filter(p => p.tradeType === filterTradeType);
     }
 
-    // 4. Filter by Price (Simplified: checks price for Sale/Jeonse, deposit for Monthly)
     if (priceRange.min > 0) {
       result = result.filter(p => {
         const value = p.tradeType === 'MONTHLY' ? (p.deposit || 0) : p.price;
@@ -254,7 +251,6 @@ const Home: React.FC = () => {
       });
     }
 
-    // 5. Filter by Area
     if (areaRange.min > 0) {
       result = result.filter(p => p.area >= areaRange.min);
     }
@@ -315,11 +311,9 @@ const Home: React.FC = () => {
               </div>
             </div>
             
-            {/* Expanded Filters */}
             {showFilters && (
               <div className="border-t border-gray-100 mt-2 pt-4 px-6 pb-6 animate-fade-in text-left">
                 <div className="grid md:grid-cols-3 gap-6">
-                  {/* Trade Type Filter */}
                   <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-2">거래 유형</label>
                     <div className="flex flex-wrap gap-2">
@@ -341,7 +335,6 @@ const Home: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Price Filter */}
                   <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-2">가격/보증금 (만원)</label>
                     <div className="flex items-center gap-2">
@@ -363,7 +356,6 @@ const Home: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Area Filter */}
                   <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-2">면적 (평)</label>
                     <div className="flex items-center gap-2">
@@ -400,7 +392,6 @@ const Home: React.FC = () => {
         </div>
       </div>
 
-      {/* Category Filter */}
       <div className="sticky top-16 z-30 bg-white shadow-sm border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 overflow-x-auto no-scrollbar">
           <div className="flex space-x-2 py-4 min-w-max">
@@ -423,7 +414,6 @@ const Home: React.FC = () => {
         </div>
       </div>
 
-      {/* Listing Grid */}
       <div className="max-w-7xl mx-auto px-4 py-12">
         <div className="flex justify-between items-end mb-6">
           <h2 className="text-2xl font-bold text-gray-900">
@@ -456,7 +446,6 @@ const Home: React.FC = () => {
         )}
       </div>
 
-      {/* Detail Modal */}
       {selectedProperty && (
         <div className="fixed inset-0 z-50 flex justify-end">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setSelectedProperty(null)}></div>

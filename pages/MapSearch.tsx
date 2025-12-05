@@ -107,24 +107,20 @@ const MapSearch: React.FC = () => {
     fetchProps();
   }, []);
 
-  // 2. Check for Kakao Map Script (Loaded via index.html)
+  // 2. Check for Kakao Map Script (Standard loading)
   useEffect(() => {
     let intervalId: any;
     let timeoutId: any;
 
     const checkKakao = () => {
-      // Check if the script object exists
+      // Check for kakao maps presence directly
       if (window.kakao && window.kakao.maps) {
-        // Only valid when autoload=false is used in script tag
-        window.kakao.maps.load(() => {
-          setMapLoaded(true);
-        });
+        setMapLoaded(true);
         return true;
       }
       return false;
     };
 
-    // Immediate check
     if (!checkKakao()) {
       intervalId = setInterval(() => {
         if (checkKakao()) {
@@ -157,31 +153,40 @@ const MapSearch: React.FC = () => {
           level: 5,
         };
         
-        const map = new window.kakao.maps.Map(mapContainer.current, options);
-        mapInstance.current = map;
-        
-        const zoomControl = new window.kakao.maps.ZoomControl();
-        map.addControl(zoomControl, window.kakao.maps.ControlPosition.RIGHT);
+        // Slight delay to ensure container size is calculated
+        setTimeout(() => {
+           if (!mapContainer.current) return;
+           
+           const map = new window.kakao.maps.Map(mapContainer.current, options);
+           mapInstance.current = map;
+           
+           const zoomControl = new window.kakao.maps.ZoomControl();
+           map.addControl(zoomControl, window.kakao.maps.ControlPosition.RIGHT);
+   
+           if (window.kakao.maps.MarkerClusterer) {
+             clustererRef.current = new window.kakao.maps.MarkerClusterer({
+               map: map,
+               averageCenter: true,
+               minLevel: 6,
+               disableClickZoom: false,
+               styles: [{ 
+                 width: '50px', 
+                 height: '50px',
+                 background: 'rgba(37, 99, 235, 0.9)',
+                 borderRadius: '25px',
+                 color: '#fff',
+                 textAlign: 'center',
+                 fontWeight: 'bold',
+                 lineHeight: '50px',
+                 boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+               }]
+             });
+           }
+           
+           // Force relayout to ensure map renders correctly in the container
+           map.relayout();
+        }, 100);
 
-        if (window.kakao.maps.MarkerClusterer) {
-          clustererRef.current = new window.kakao.maps.MarkerClusterer({
-            map: map,
-            averageCenter: true,
-            minLevel: 6,
-            disableClickZoom: false,
-            styles: [{ 
-              width: '50px', 
-              height: '50px',
-              background: 'rgba(37, 99, 235, 0.9)',
-              borderRadius: '25px',
-              color: '#fff',
-              textAlign: 'center',
-              fontWeight: 'bold',
-              lineHeight: '50px',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-            }]
-          });
-        }
       } catch (e) {
         console.error("Map initialization error:", e);
         setMapError("지도를 초기화하는 중 오류가 발생했습니다. API 키 설정을 확인해주세요.");
