@@ -10,9 +10,6 @@ declare global {
   }
 }
 
-// New API Key provided by user
-const KAKAO_API_KEY = '08318a127595566819a1c38d00deaab2';
-
 const MapSearch: React.FC = () => {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loadingData, setLoadingData] = useState(true);
@@ -110,46 +107,41 @@ const MapSearch: React.FC = () => {
     fetchProps();
   }, []);
 
-  // 2. Load Kakao Map Script Dynamically
+  // 2. Check for Kakao Map Script (Loaded via index.html)
   useEffect(() => {
-    const scriptId = 'kakao-map-script';
-    
-    // Check if script already exists
-    if (document.getElementById(scriptId)) {
-       if (window.kakao && window.kakao.maps) {
-         setMapLoaded(true);
-       } else {
-         // Existing script not fully loaded, wait for it
-         const interval = setInterval(() => {
-           if (window.kakao && window.kakao.maps) {
-             window.kakao.maps.load(() => setMapLoaded(true));
-             clearInterval(interval);
-           }
-         }, 100);
-         setTimeout(() => clearInterval(interval), 5000);
-       }
-       return;
+    let intervalId: any;
+    let timeoutId: any;
+
+    const checkKakao = () => {
+      if (window.kakao && window.kakao.maps) {
+        window.kakao.maps.load(() => {
+          setMapLoaded(true);
+        });
+        return true;
+      }
+      return false;
+    };
+
+    if (!checkKakao()) {
+      intervalId = setInterval(() => {
+        if (checkKakao()) {
+          clearInterval(intervalId);
+          clearTimeout(timeoutId);
+        }
+      }, 500);
+
+      // Wait 10 seconds for script to load
+      timeoutId = setTimeout(() => {
+        clearInterval(intervalId);
+        if (!window.kakao || !window.kakao.maps) {
+          setMapError("지도 스크립트를 불러오지 못했습니다. 새로고침 해주세요.");
+        }
+      }, 10000);
     }
 
-    const script = document.createElement('script');
-    script.id = scriptId;
-    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_API_KEY}&libraries=services,clusterer&autoload=false`;
-    script.async = true;
-    
-    script.onload = () => {
-      window.kakao.maps.load(() => {
-        setMapLoaded(true);
-      });
-    };
-    
-    script.onerror = () => {
-      setMapError("Kakao 지도를 불러오는데 실패했습니다. 네트워크를 확인해주세요.");
-    };
-
-    document.head.appendChild(script);
-
     return () => {
-      // Cleanup if needed, but usually we keep the script
+      clearInterval(intervalId);
+      clearTimeout(timeoutId);
     };
   }, []);
 
