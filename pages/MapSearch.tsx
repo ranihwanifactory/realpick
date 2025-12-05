@@ -323,7 +323,7 @@ const MapSearch: React.FC = () => {
             <div className="bg-blue-50 p-4 rounded-lg text-left text-sm text-blue-800 max-w-md w-full border border-blue-100">
               <p className="font-bold flex items-center gap-2 mb-2"><Settings size={16}/> 확인 사항:</p>
               <ul className="list-disc list-inside space-y-1">
-                <li>Kakao Developers > 플랫폼 > Web에 현재 도메인이 등록되어 있나요?</li>
+                <li>Kakao Developers &gt; 플랫폼 &gt; Web에 현재 도메인이 등록되어 있나요?</li>
                 <li>API 키가 정확한지 확인해주세요.</li>
               </ul>
             </div>
