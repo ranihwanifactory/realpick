@@ -13,25 +13,24 @@ const Map: React.FC<MapProps> = ({ properties, onMarkerClick, isSelectingLocatio
   const mapContainer = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<any>(null);
   const [clusterer, setClusterer] = useState<any>(null);
-  const [isScriptError, setIsScriptError] = useState(false);
+  const [isMapLoaded, setIsMapLoaded] = useState(false);
 
-  // Initialize Map with Dynamic Script Loading
+  // Initialize Map
   useEffect(() => {
-    // If map already initialized, skip
     if (map) return;
-
-    const APP_KEY = '08318a127595566819a1c38d00deaab2';
-    const SCRIPT_ID = 'kakao-map-script';
 
     const initMap = () => {
       const { kakao } = window;
-      if (!kakao || !kakao.maps) return;
+      if (!kakao || !kakao.maps) {
+        return false;
+      }
+
+      // Check if container exists
+      if (!mapContainer.current) return false;
 
       kakao.maps.load(() => {
-        if (!mapContainer.current) return;
-
         const options = {
-          center: new kakao.maps.LatLng(center?.lat || 37.5665, center?.lng || 126.9780), // Default to Seoul
+          center: new kakao.maps.LatLng(center?.lat || 37.5665, center?.lng || 126.9780),
           level: 8,
         };
 
@@ -44,48 +43,33 @@ const Map: React.FC<MapProps> = ({ properties, onMarkerClick, isSelectingLocatio
           minLevel: 5,
         });
         setClusterer(newClusterer);
+        setIsMapLoaded(true);
       });
+      
+      return true;
     };
 
-    const existingScript = document.getElementById(SCRIPT_ID);
-    
-    if (existingScript) {
-      if (window.kakao && window.kakao.maps) {
-        initMap();
-      } else {
-        existingScript.addEventListener('load', initMap);
+    // Retry initialization until script is ready
+    const timer = setInterval(() => {
+      if (initMap()) {
+        clearInterval(timer);
       }
-    } else {
-      const script = document.createElement('script');
-      script.id = SCRIPT_ID;
-      script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${APP_KEY}&libraries=services,clusterer&autoload=false`;
-      script.async = true;
-      
-      script.onload = () => {
-        initMap();
-      };
-      
-      script.onerror = () => {
-        console.error('Failed to load Kakao Maps SDK');
-        setIsScriptError(true);
-      };
+    }, 100);
 
-      document.head.appendChild(script);
-    }
+    // Timeout fallback (stop polling after 10s)
+    const timeout = setTimeout(() => {
+      clearInterval(timer);
+    }, 10000);
 
     return () => {
-      if (existingScript) {
-        existingScript.removeEventListener('load', initMap);
-      }
+      clearInterval(timer);
+      clearTimeout(timeout);
     };
   }, [center, map]);
 
   // Update Markers & Clusterer
   useEffect(() => {
-    if (!map || !clusterer || !window.kakao || properties.length === 0) {
-        if (clusterer) clusterer.clear();
-        return;
-    }
+    if (!map || !clusterer || !window.kakao || !isMapLoaded) return;
 
     // Clear old markers
     clusterer.clear();
@@ -109,13 +93,15 @@ const Map: React.FC<MapProps> = ({ properties, onMarkerClick, isSelectingLocatio
       return marker;
     });
 
-    clusterer.addMarkers(newMarkers);
+    if (newMarkers.length > 0) {
+      clusterer.addMarkers(newMarkers);
+    }
 
-  }, [map, clusterer, properties, onMarkerClick, isSelectingLocation]);
+  }, [map, clusterer, properties, onMarkerClick, isSelectingLocation, isMapLoaded]);
 
   // Handle Map Click
   useEffect(() => {
-    if (!map || !window.kakao) return;
+    if (!map || !window.kakao || !isMapLoaded) return;
 
     const clickHandler = (mouseEvent: any) => {
       if (isSelectingLocation) {
@@ -129,7 +115,7 @@ const Map: React.FC<MapProps> = ({ properties, onMarkerClick, isSelectingLocatio
     return () => {
       window.kakao.maps.event.removeListener(map, 'click', clickHandler);
     };
-  }, [map, isSelectingLocation, onMapClick]);
+  }, [map, isSelectingLocation, onMapClick, isMapLoaded]);
 
   // Cursor handling
   useEffect(() => {
@@ -141,27 +127,19 @@ const Map: React.FC<MapProps> = ({ properties, onMarkerClick, isSelectingLocatio
   return (
     <div className="w-full h-full relative group">
       <div ref={mapContainer} className="w-full h-full bg-gray-100 relative">
-         {!map && !isScriptError && (
+         {!isMapLoaded && (
              <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
                 <div className="text-center">
                     <svg className="animate-spin h-8 w-8 text-indigo-600 mx-auto mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    <p className="text-gray-500 font-medium animate-pulse">지도 정보를 가져오는 중...</p>
+                    <p className="text-gray-500 font-medium animate-pulse">지도를 불러오는 중입니다...</p>
                 </div>
              </div>
           )}
-          {isScriptError && (
-              <div className="absolute inset-0 flex items-center justify-center bg-red-50 z-10 text-red-600 p-4 text-center">
-                  <div>
-                    <p className="font-bold text-lg mb-1">지도를 불러올 수 없습니다</p>
-                    <p className="text-sm">네트워크 연결을 확인하거나 나중에 다시 시도해주세요.</p>
-                  </div>
-              </div>
-          )}
       </div>
-      {isSelectingLocation && map && (
+      {isSelectingLocation && isMapLoaded && (
         <div className="absolute top-24 left-1/2 transform -translate-x-1/2 bg-indigo-600 text-white px-6 py-3 rounded-full shadow-xl z-30 font-bold animate-bounce whitespace-nowrap pointer-events-none">
           원하는 위치를 지도에서 클릭하세요
         </div>
