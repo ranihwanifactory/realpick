@@ -1,41 +1,736 @@
 <!DOCTYPE html>
 <html lang="ko">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PrimeEstate Map</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=08318a127595566819a1c38d00deaab2&libraries=services,clusterer&autoload=false"></script>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>부동산 지도 - Real Estate Map</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-auth.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-firestore.min.js"></script>
+    <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=08318a127595566819a1c38d00deaab2"></script>
     <style>
-      /* Custom scrollbar for webkit */
-      ::-webkit-scrollbar {
-        width: 6px;
-      }
-      ::-webkit-scrollbar-track {
-        background: #f1f1f1;
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #888;
-        border-radius: 3px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #555;
-      }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+            gap: 0;
+        }
+
+        .sidebar {
+            width: 380px;
+            background: white;
+            box-shadow: 2px 0 15px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-bottom: none;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        .auth-section {
+            padding: 15px 20px;
+            border-bottom: 1px solid #e0e0e0;
+            background: #f8f9fa;
+        }
+
+        .auth-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-logout {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        .btn-logout:hover {
+            background: #ff5252;
+        }
+
+        .user-info {
+            padding: 15px 20px;
+            background: #f0f4ff;
+            border-bottom: 1px solid #e0e0e0;
+            display: none;
+        }
+
+        .user-info.active {
+            display: block;
+        }
+
+        .user-info p {
+            font-size: 12px;
+            color: #666;
+            margin: 5px 0;
+        }
+
+        .user-email {
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 8px;
+        }
+
+        .form-section {
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+            background: white;
+            display: none;
+        }
+
+        .form-section.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: inherit;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 70px;
+        }
+
+        .btn-add {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-add:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .properties-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .property-item {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-left: 4px solid #667eea;
+        }
+
+        .property-item:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .property-title {
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        .property-price {
+            color: #764ba2;
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .property-address {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .property-type {
+            display: inline-block;
+            background: #f0f4ff;
+            color: #667eea;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-right: 5px;
+        }
+
+        .btn-delete {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            float: right;
+            margin-top: 8px;
+        }
+
+        .btn-delete:hover {
+            background: #ff5252;
+        }
+
+        #map {
+            flex: 1;
+            background: #e8eef7;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                height: 40%;
+            }
+
+            #map {
+                height: 60%;
+            }
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        .modal-button {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .google-btn {
+            background: white;
+            color: #333;
+            border: 1px solid #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .google-btn:hover {
+            background: #f8f8f8;
+        }
+
+        .email-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .email-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: #000;
+        }
+
+        .success-msg {
+            background: #d4edda;
+            color: #155724;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        .success-msg.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react": "https://aistudiocdn.com/react@^19.2.1",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
-    "react/": "https://aistudiocdn.com/react@^19.2.1/",
-    "firebase/": "https://aistudiocdn.com/firebase@^12.6.0/"
-  }
-}
-</script>
-<link rel="stylesheet" href="/index.css">
 </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
-  </body>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <div class="header">
+                <h1>🏠 부동산 지도</h1>
+                <p>관리자: acehwan69@gmail.com</p>
+            </div>
+
+            <div class="auth-section">
+                <div id="authButtons" class="auth-buttons">
+                    <button class="btn btn-primary" onclick="openAuthModal()">로그인</button>
+                </div>
+                <div id="userInfo" class="user-info">
+                    <div class="user-email" id="userEmail"></div>
+                    <button class="btn btn-logout" onclick="logout()">로그아웃</button>
+                </div>
+            </div>
+
+            <div id="formSection" class="form-section">
+                <div class="success-msg" id="successMsg">✓ 부동산 정보가 등록되었습니다!</div>
+                <form onsubmit="addProperty(event)">
+                    <div class="form-group">
+                        <label>건물명 *</label>
+                        <input type="text" id="title" required placeholder="예: 강남 오피스텔">
+                    </div>
+                    <div class="form-group">
+                        <label>주소 *</label>
+                        <input type="text" id="address" required placeholder="예: 서울시 강남구 테헤란로">
+                    </div>
+                    <div class="form-group">
+                        <label>유형 *</label>
+                        <select id="type" required>
+                            <option value="">선택하세요</option>
+                            <option value="주택">주택</option>
+                            <option value="오피스텔">오피스텔</option>
+                            <option value="상업용">상업용</option>
+                            <option value="토지">토지</option>
+                            <option value="기타">기타</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>가격 (만원) *</label>
+                        <input type="number" id="price" required placeholder="예: 50000">
+                    </div>
+                    <div class="form-group">
+                        <label>설명</label>
+                        <textarea id="description" placeholder="부동산 정보 설명..."></textarea>
+                    </div>
+                    <button type="submit" class="btn-add">📍 지도에 등록하기</button>
+                </form>
+            </div>
+
+            <div class="properties-list">
+                <div id="propertiesList"></div>
+            </div>
+        </div>
+
+        <div id="map"></div>
+    </div>
+
+    <!-- 인증 모달 -->
+    <div id="authModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeAuthModal()">&times;</span>
+            <h2>로그인</h2>
+            <button class="modal-button google-btn" onclick="loginWithGoogle()">
+                <span>🔗 Google 로그인</span>
+            </button>
+            <div style="margin: 15px 0; text-align: center; color: #ccc;">또는</div>
+            <div class="form-group">
+                <input type="email" id="emailInput" placeholder="이메일 주소">
+            </div>
+            <div class="form-group">
+                <input type="password" id="passwordInput" placeholder="비밀번호">
+            </div>
+            <button class="modal-button email-btn" onclick="loginWithEmail()">이메일로 로그인</button>
+            <button class="modal-button email-btn" onclick="signupWithEmail()" style="background: #764ba2;">회원가입</button>
+        </div>
+    </div>
+
+    <script>
+        // Firebase 설정
+        const firebaseConfig = {
+            apiKey: "AIzaSyBvTQOD-bDKTzG1dQenH311OBQ9pzYzsUY",
+            authDomain: "sjnb-a6742.firebaseapp.com",
+            projectId: "sjnb-a6742",
+            storageBucket: "sjnb-a6742.firebasestorage.app",
+            messagingSenderId: "665816979587",
+            appId: "1:665816979587:web:d1a5264005ccd210a3a3b6"
+        };
+
+        // Firebase 초기화
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        let map;
+        let markers = [];
+        const adminEmail = 'acehwan69@gmail.com';
+
+        // 지도 초기화
+        function initMap() {
+            const container = document.getElementById('map');
+            const options = {
+                center: new kakao.maps.LatLng(37.4979, 127.0276),
+                level: 5
+            };
+            map = new kakao.maps.Map(container, options);
+            loadProperties();
+        }
+
+        // 인증 상태 감시
+        auth.onAuthStateChanged(user => {
+            const authButtons = document.getElementById('authButtons');
+            const userInfo = document.getElementById('userInfo');
+            const formSection = document.getElementById('formSection');
+
+            if (user) {
+                authButtons.style.display = 'none';
+                userInfo.classList.add('active');
+                formSection.classList.add('active');
+                document.getElementById('userEmail').textContent = user.email;
+            } else {
+                authButtons.style.display = 'flex';
+                userInfo.classList.remove('active');
+                formSection.classList.remove('active');
+            }
+        });
+
+        // Google 로그인
+        function loginWithGoogle() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider).catch(error => alert('로그인 실패: ' + error.message));
+        }
+
+        // 이메일 로그인
+        function loginWithEmail() {
+            const email = document.getElementById('emailInput').value;
+            const password = document.getElementById('passwordInput').value;
+            if (!email || !password) {
+                alert('이메일과 비밀번호를 입력하세요.');
+                return;
+            }
+            auth.signInWithEmailAndPassword(email, password)
+                .then(() => closeAuthModal())
+                .catch(error => alert('로그인 실패: ' + error.message));
+        }
+
+        // 회원가입
+        function signupWithEmail() {
+            const email = document.getElementById('emailInput').value;
+            const password = document.getElementById('passwordInput').value;
+            if (!email || !password) {
+                alert('이메일과 비밀번호를 입력하세요.');
+                return;
+            }
+            auth.createUserWithEmailAndPassword(email, password)
+                .then(() => {
+                    alert('회원가입 완료! 로그인되었습니다.');
+                    closeAuthModal();
+                })
+                .catch(error => alert('회원가입 실패: ' + error.message));
+        }
+
+        // 로그아웃
+        function logout() {
+            auth.signOut();
+            clearMarkers();
+        }
+
+        // 인증 모달 제어
+        function openAuthModal() {
+            document.getElementById('authModal').classList.add('active');
+        }
+
+        function closeAuthModal() {
+            document.getElementById('authModal').classList.remove('active');
+            document.getElementById('emailInput').value = '';
+            document.getElementById('passwordInput').value = '';
+        }
+
+        // 부동산 추가
+        async function addProperty(e) {
+            e.preventDefault();
+            const user = auth.currentUser;
+
+            if (!user) {
+                alert('로그인 후 이용하세요.');
+                return;
+            }
+
+            const title = document.getElementById('title').value;
+            const address = document.getElementById('address').value;
+            const type = document.getElementById('type').value;
+            const price = document.getElementById('price').value;
+            const description = document.getElementById('description').value;
+
+            try {
+                // 주소를 좌표로 변환
+                const coords = await geocodeAddress(address);
+
+                await db.collection('properties').add({
+                    title,
+                    address,
+                    type,
+                    price: parseInt(price),
+                    description,
+                    latitude: coords.lat,
+                    longitude: coords.lng,
+                    createdBy: user.email,
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                });
+
+                // 성공 메시지 표시
+                const msg = document.getElementById('successMsg');
+                msg.classList.add('show');
+                setTimeout(() => msg.classList.remove('show'), 3000);
+
+                // 폼 초기화
+                document.querySelector('form').reset();
+                loadProperties();
+            } catch (error) {
+                alert('등록 실패: ' + error.message);
+            }
+        }
+
+        // 주소 지오코딩
+        function geocodeAddress(address) {
+            return new Promise((resolve, reject) => {
+                const geocoder = new kakao.maps.services.Geocoder();
+                geocoder.addressSearch(address, function (result, status) {
+                    if (status === kakao.maps.services.Status.OK) {
+                        resolve({
+                            lat: parseFloat(result[0].y),
+                            lng: parseFloat(result[0].x)
+                        });
+                    } else {
+                        reject(new Error('주소를 찾을 수 없습니다.'));
+                    }
+                });
+            });
+        }
+
+        // 부동산 목록 로드
+        async function loadProperties() {
+            try {
+                const snapshot = await db.collection('properties').orderBy('createdAt', 'desc').get();
+                const list = document.getElementById('propertiesList');
+                list.innerHTML = '';
+
+                clearMarkers();
+
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const id = doc.id;
+
+                    // 목록 항목 생성
+                    const item = document.createElement('div');
+                    item.className = 'property-item';
+                    item.innerHTML = `
+                        <div class="property-title">${data.title}</div>
+                        <div class="property-price">${data.price.toLocaleString()}만원</div>
+                        <div class="property-address">${data.address}</div>
+                        <span class="property-type">${data.type}</span>
+                        ${auth.currentUser && auth.currentUser.email === data.createdBy ? 
+                            `<button class="btn-delete" onclick="deleteProperty('${id}')">삭제</button>` : ''}
+                    `;
+                    item.onclick = () => focusOnMarker(data.latitude, data.longitude);
+                    list.appendChild(item);
+
+                    // 마커 생성
+                    addMarker(data.latitude, data.longitude, data.title, data.price, data.address, data.type);
+                });
+            } catch (error) {
+                console.error('부동산 로드 실패:', error);
+            }
+        }
+
+        // 마커 추가
+        function addMarker(lat, lng, title, price, address, type) {
+            const position = new kakao.maps.LatLng(lat, lng);
+            const marker = new kakao.maps.Marker({
+                position: position,
+                map: map
+            });
+
+            const infoWindow = new kakao.maps.InfoWindow({
+                content: `
+                    <div style="padding:15px;border-radius:8px;background:white;min-width:250px;box-shadow:0 2px 8px rgba(0,0,0,0.2);">
+                        <div style="font-weight:700;color:#333;margin-bottom:8px;font-size:16px;">${title}</div>
+                        <div style="color:#764ba2;font-weight:600;margin-bottom:5px;font-size:14px;">${price.toLocaleString()}만원</div>
+                        <div style="color:#666;font-size:12px;margin-bottom:8px;">${address}</div>
+                        <span style="display:inline-block;background:#f0f4ff;color:#667eea;padding:4px 8px;border-radius:4px;font-size:11px;font-weight:600;">${type}</span>
+                    </div>
+                `,
+                removable: true
+            });
+
+            marker.addListener('mouseover', () => infoWindow.open(map, marker));
+            marker.addListener('mouseout', () => infoWindow.close());
+
+            markers.push(marker);
+        }
+
+        // 마커 초기화
+        function clearMarkers() {
+            markers.forEach(marker => marker.setMap(null));
+            markers = [];
+        }
+
+        // 마커에 포커스
+        function focusOnMarker(lat, lng) {
+            map.setCenter(new kakao.maps.LatLng(lat, lng));
+            map.setLevel(3);
+        }
+
+        // 부동산 삭제
+        async function deleteProperty(id) {
+            if (confirm('정말 삭제하시겠습니까?')) {
+                try {
+                    await db.collection('properties').doc(id).delete();
+                    loadProperties();
+                    alert('삭제되었습니다.');
+                } catch (error) {
+                    alert('삭제 실패: ' + error.message);
+                }
+            }
+        }
+
+        // 초기화
+        window.addEventListener('load', initMap);
+    </script>
+</body>
 </html>
