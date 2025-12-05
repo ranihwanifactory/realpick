@@ -1,6 +1,6 @@
 {
-  "name": "K-Estate Hub",
-  "description": "A modern Korean real estate platform featuring dynamic listings, map search via Kakao Maps, and Firebase integration.",
+  "name": "PrimeEstate Map",
+  "description": "A modern real estate mapping application using Firebase and Kakao Maps.",
   "requestFramePermissions": [
     "geolocation"
   ]
