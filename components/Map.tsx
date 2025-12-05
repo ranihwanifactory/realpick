@@ -13,15 +13,20 @@ const Map: React.FC<MapProps> = ({ properties, onMarkerClick, isSelectingLocatio
   const mapContainer = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<any>(null);
   const [clusterer, setClusterer] = useState<any>(null);
-  const markersRef = useRef<any[]>([]);
+  
+  // Track initialization to prevent double init in Strict Mode
+  const isInitialized = useRef(false);
 
   // Initialize Map
   useEffect(() => {
-    if (!mapContainer.current) return;
-
+    if (isInitialized.current) return;
+    
     const initMap = () => {
       const { kakao } = window;
-      if (!kakao || !kakao.maps) return;
+      if (!kakao || !kakao.maps || !mapContainer.current) return;
+
+      // Mark as initialized to prevent duplicates
+      isInitialized.current = true;
 
       const options = {
         center: new kakao.maps.LatLng(center?.lat || 37.5665, center?.lng || 126.9780), // Default to Seoul City Hall
@@ -40,18 +45,18 @@ const Map: React.FC<MapProps> = ({ properties, onMarkerClick, isSelectingLocatio
       setClusterer(newClusterer);
     };
 
-    // Check if script is loaded, otherwise wait
-    if (window.kakao && window.kakao.maps) {
-      window.kakao.maps.load(initMap);
-    } else {
-      // Retry or handle error - for now assume index.html loaded it
-      const interval = setInterval(() => {
-        if (window.kakao && window.kakao.maps) {
-          clearInterval(interval);
+    // Retry logic to ensure Kakao script is loaded
+    const tryInit = () => {
+       if (window.kakao && window.kakao.maps) {
+          // IMPORTANT: Use kakao.maps.load when autoload=false is used
           window.kakao.maps.load(initMap);
-        }
-      }, 100);
-    }
+       } else {
+          setTimeout(tryInit, 100);
+       }
+    };
+
+    tryInit();
+
   }, []); // Run once on mount
 
   // Handle Properties & Markers
@@ -59,16 +64,10 @@ const Map: React.FC<MapProps> = ({ properties, onMarkerClick, isSelectingLocatio
     if (!map || !clusterer || !window.kakao) return;
 
     // Clear existing markers
-    if (clusterer) {
-      clusterer.clear();
-    }
-    markersRef.current = [];
+    clusterer.clear();
 
     const newMarkers = properties.map((property) => {
       const position = new window.kakao.maps.LatLng(property.lat, property.lng);
-      
-      // Determine marker image based on type (optional, using default for now or simple colors)
-      // Custom content for marker could be used here for nicer UX
       
       const marker = new window.kakao.maps.Marker({
         position: position,
@@ -79,8 +78,6 @@ const Map: React.FC<MapProps> = ({ properties, onMarkerClick, isSelectingLocatio
       window.kakao.maps.event.addListener(marker, 'click', () => {
         if (!isSelectingLocation) {
           onMarkerClick(property);
-          
-          // Pan to marker
           map.panTo(position);
         }
       });
@@ -89,7 +86,6 @@ const Map: React.FC<MapProps> = ({ properties, onMarkerClick, isSelectingLocatio
     });
 
     clusterer.addMarkers(newMarkers);
-    markersRef.current = newMarkers;
 
   }, [map, clusterer, properties, onMarkerClick, isSelectingLocation]);
 
@@ -101,8 +97,6 @@ const Map: React.FC<MapProps> = ({ properties, onMarkerClick, isSelectingLocatio
       if (isSelectingLocation) {
         const latlng = mouseEvent.latLng;
         onMapClick(latlng.getLat(), latlng.getLng());
-      } else {
-        // Close property card if clicking elsewhere? handled by App state usually
       }
     };
 
@@ -122,9 +116,16 @@ const Map: React.FC<MapProps> = ({ properties, onMarkerClick, isSelectingLocatio
 
   return (
     <div className="w-full h-full relative group">
-      <div ref={mapContainer} className="w-full h-full bg-gray-100" />
+      <div ref={mapContainer} className="w-full h-full bg-gray-100 relative">
+          {/* Loading Placeholder inside the container */}
+          {!map && (
+             <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10 text-gray-500">
+                <span className="animate-pulse">지도를 불러오는 중입니다...</span>
+             </div>
+          )}
+      </div>
       {isSelectingLocation && (
-        <div className="absolute top-24 left-1/2 transform -translate-x-1/2 bg-indigo-600 text-white px-6 py-3 rounded-full shadow-xl z-30 font-bold animate-bounce">
+        <div className="absolute top-24 left-1/2 transform -translate-x-1/2 bg-indigo-600 text-white px-6 py-3 rounded-full shadow-xl z-30 font-bold animate-bounce whitespace-nowrap">
           원하는 위치를 지도에서 클릭하세요
         </div>
       )}
