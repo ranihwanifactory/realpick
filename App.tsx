@@ -125,7 +125,7 @@ const App: React.FC = () => {
       {/* Main Content */}
       <main className="flex-1 flex flex-col md:flex-row relative">
         
-        {/* Map View (Conditional on Mobile, always visible in Map Mode on Desktop if split view desired, but keeping it simple modes for now) */}
+        {/* Map View */}
         {viewMode === 'MAP' && (
           <div className="absolute inset-0 z-10 md:relative md:flex-1 h-[calc(100vh-64px)]">
              <KakaoMap 
@@ -133,11 +133,11 @@ const App: React.FC = () => {
                onMarkerClick={(p) => setSelectedProperty(p)} 
              />
              
-             {/* Map Overlay Filter */}
-             <div className="absolute top-4 left-4 z-20 flex gap-2 overflow-x-auto max-w-[90vw] pb-2 hide-scrollbar">
+             {/* Map Overlay Filter - Positioned Top Left */}
+             <div className="absolute top-4 left-4 z-20 flex gap-2 overflow-x-auto max-w-[calc(100%-220px)] md:max-w-[500px] pb-2 hide-scrollbar">
                <button 
                  onClick={() => setFilterType('ALL')}
-                 className={`px-4 py-2 rounded-full text-sm font-bold shadow-lg whitespace-nowrap ${filterType === 'ALL' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                 className={`px-3 py-2 rounded-full text-xs font-bold shadow-lg whitespace-nowrap transition-colors ${filterType === 'ALL' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
                >
                  전체
                </button>
@@ -145,7 +145,7 @@ const App: React.FC = () => {
                   <button 
                     key={key}
                     onClick={() => setFilterType(key)}
-                    className={`px-4 py-2 rounded-full text-sm font-bold shadow-lg whitespace-nowrap ${filterType === key ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                    className={`px-3 py-2 rounded-full text-xs font-bold shadow-lg whitespace-nowrap transition-colors ${filterType === key ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
                   >
                     {value}
                   </button>
@@ -154,11 +154,11 @@ const App: React.FC = () => {
 
              {/* Selected Property Popup on Map */}
              {selectedProperty && (
-               <div className="absolute bottom-8 left-4 right-4 md:left-auto md:right-8 md:w-96 z-20 animate-slide-up">
+               <div className="absolute bottom-8 left-4 right-4 md:left-auto md:right-8 md:w-96 z-30 animate-slide-up">
                  <div className="relative">
                    <button 
                      onClick={() => setSelectedProperty(null)}
-                     className="absolute -top-3 -right-3 bg-white rounded-full p-1 shadow-md border z-30"
+                     className="absolute -top-3 -right-3 bg-white rounded-full p-1 shadow-md border z-30 hover:bg-gray-100"
                    >
                      <span className="sr-only">Close</span>
                      <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
@@ -176,7 +176,7 @@ const App: React.FC = () => {
              {/* Toggle to List View (Mobile Floating Button) */}
              <button 
                onClick={() => setViewMode('LIST')}
-               className="md:hidden absolute bottom-24 right-4 bg-white p-3 rounded-full shadow-xl z-20 text-gray-700"
+               className="md:hidden absolute bottom-24 right-4 bg-white p-3 rounded-full shadow-xl z-20 text-gray-700 hover:text-blue-600"
              >
                <List size={24} />
              </button>
